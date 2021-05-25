@@ -33,6 +33,10 @@ from carla.sensor import Camera
 from carla.image_converter import labels_to_array, depth_to_array, to_bgra_array
 from carla.planner.city_track import CityTrack
 
+sys.path.append(os.path.abspath('./traffic_light_detection_module/'))
+from yolo import YOLO
+from postprocessing import draw_boxes
+
 
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
@@ -116,8 +120,8 @@ camera_parameters = {}
 camera_parameters['x'] = 1.8
 camera_parameters['y'] = 0
 camera_parameters['z'] = 1.3
-camera_parameters['width'] = 200
-camera_parameters['height'] = 200
+camera_parameters['width'] = 416
+camera_parameters['height'] = 416
 camera_parameters['fov'] = 90
 
 def rotate_x(angle):
@@ -205,6 +209,12 @@ def make_carla_settings(args):
     camera_fov = camera_parameters['fov']
 
     # Declare here your sensors
+    camera0 = Camera("CameraRGB")
+    camera0.set_image_size(camera_width, camera_height)
+    camera0.set(FOV=camera_fov)
+    camera0.set_position(cam_x_pos, cam_y_pos, cam_height)
+    
+    settings.add_sensor(camera0)
 
     return settings
 
@@ -761,6 +771,17 @@ def exec_waypoint_nav_demo(args):
         prev_collision_pedestrians = 0
         prev_collision_other       = 0
 
+        #############################################
+        # Semaphore detector initialization
+        #############################################
+        CONFIG_PATH = './traffic_light_detection_module/config.json'
+        DETECTOR_STATE_WINDOW_NAME = 'Detector state'
+        with open(os.path.abspath(CONFIG_PATH), 'r') as detector_config_file:
+            config = json.load(detector_config_file)
+        detector = YOLO(config=config)
+        detector_window = cv2.namedWindow(DETECTOR_STATE_WINDOW_NAME, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(DETECTOR_STATE_WINDOW_NAME, camera_parameters['width'],camera_parameters['height'])
+        
         for frame in range(TOTAL_EPISODE_FRAMES):
             # Gather current data from the CARLA server
             measurement_data, sensor_data = client.read_data()
@@ -808,6 +829,19 @@ def exec_waypoint_nav_demo(args):
             # to be operating at a frequency that is a division to the 
             # simulation frequency.
             if frame % LP_FREQUENCY_DIVISOR == 0:
+
+                camera_data = sensor_data.get('CameraRGB', None)
+                if camera_data is not None:
+                    # passala al detector
+                    camera_data = to_bgra_array(camera_data)
+                    camera_data_resized = cv2.resize(camera_data, dsize=(camera_parameters['width'], camera_parameters['height']))
+                    # cv2.imshow(DETECTOR_STATE_WINDOW_NAME, camera_data_resized)
+                    # cv2.waitKey(1)
+                    predictions = detector.predict(camera_data)
+                    plt_image = draw_boxes(camera_data_resized, predictions, config['model']['classes'])
+                    cv2.imshow(DETECTOR_STATE_WINDOW_NAME, plt_image)
+                    cv2.waitKey(1)
+
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
 
