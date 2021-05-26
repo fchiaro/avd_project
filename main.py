@@ -37,11 +37,13 @@ sys.path.append(os.path.abspath('./traffic_light_detection_module/'))
 from yolo import YOLO
 from postprocessing import draw_boxes
 
+from traffic_light_detection import TrafficLightDetector
+
 
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 7          #  spawn index for player
+PLAYER_START_INDEX = 13          #  spawn index for player
 DESTINATION_INDEX = 15        # Setting a Destination HERE
 NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
 NUM_VEHICLES           = 30      # total number of vehicles to spawn
@@ -57,7 +59,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
-ENABLE_DETECTOR = False
+ENABLE_DETECTOR = True
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -211,12 +213,23 @@ def make_carla_settings(args):
     camera_fov = camera_parameters['fov']
 
     # Declare here your sensors
+
+    # RGB CAMERA
     camera0 = Camera("CameraRGB")
     camera0.set_image_size(camera_width, camera_height)
     camera0.set(FOV=camera_fov)
     camera0.set_position(cam_x_pos, cam_y_pos, cam_height)
     
     settings.add_sensor(camera0)
+
+    # DEPTH CAMERA
+    DEPTH_CAMERA_Y_OFFSET = 0.10
+    camera1 = Camera('DepthCamera', PostProcessing='Depth')
+    camera1.set_image_size(camera_width, camera_height)
+    camera1.set(FOV=camera_fov)
+    camera1.set_position(cam_x_pos, cam_y_pos+DEPTH_CAMERA_Y_OFFSET, cam_height)
+
+    settings.add_sensor(camera1)
 
     return settings
 
@@ -778,12 +791,7 @@ def exec_waypoint_nav_demo(args):
         #############################################
         if ENABLE_DETECTOR:
             CONFIG_PATH = './traffic_light_detection_module/config.json'
-            DETECTOR_STATE_WINDOW_NAME = 'Detector state'
-            with open(os.path.abspath(CONFIG_PATH), 'r') as detector_config_file:
-                config = json.load(detector_config_file)
-            detector = YOLO(config=config)
-            detector_window = cv2.namedWindow(DETECTOR_STATE_WINDOW_NAME, cv2.WINDOW_NORMAL)
-            cv2.resizeWindow(DETECTOR_STATE_WINDOW_NAME, camera_parameters['width'],camera_parameters['height'])
+            tl_detector = TrafficLightDetector(CONFIG_PATH)
         
         for frame in range(TOTAL_EPISODE_FRAMES):
             # Gather current data from the CARLA server
@@ -835,16 +843,21 @@ def exec_waypoint_nav_demo(args):
 
                 if ENABLE_DETECTOR:
                     camera_data = sensor_data.get('CameraRGB', None)
-                    if camera_data is not None:
+                    depth_data = sensor_data.get("DepthCamera", None)
+                    if camera_data is not None and depth_data is not None:
                         # passala al detector
                         camera_data = to_bgra_array(camera_data)
-                        camera_data_resized = cv2.resize(camera_data, dsize=(camera_parameters['width'], camera_parameters['height']))
-                        # cv2.imshow(DETECTOR_STATE_WINDOW_NAME, camera_data_resized)
-                        # cv2.waitKey(1)
-                        predictions = detector.predict(camera_data)
-                        plt_image = draw_boxes(camera_data_resized, predictions, config['model']['classes'])
-                        cv2.imshow(DETECTOR_STATE_WINDOW_NAME, plt_image)
-                        cv2.waitKey(1)
+                        normalized_depth_data = depth_to_array(depth_data)
+                        depth_data = normalized_depth_data*1000 # convert to meters
+                        state, distance = tl_detector.detect_and_estimate_distance(camera_data, depth_data)
+                        alpha = 0.7
+                        history = 0
+                        if distance is not None:
+                            avg_depth = alpha*distance + (1-alpha)*history
+                            history += avg_depth
+                        print(f"Semaphore state: {state} - semaphore distance: {avg_depth}") # DEBUG
+                        cv2.imshow('Depth data', normalized_depth_data) # DEBUG
+                        cv2.waitKey(1) # DEBUG
 
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
