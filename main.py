@@ -57,6 +57,8 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
+ENABLE_DETECTOR = False
+
 WEATHERID = {
     "DEFAULT": 0,
     "CLEARNOON": 1,
@@ -774,13 +776,14 @@ def exec_waypoint_nav_demo(args):
         #############################################
         # Semaphore detector initialization
         #############################################
-        CONFIG_PATH = './traffic_light_detection_module/config.json'
-        DETECTOR_STATE_WINDOW_NAME = 'Detector state'
-        with open(os.path.abspath(CONFIG_PATH), 'r') as detector_config_file:
-            config = json.load(detector_config_file)
-        detector = YOLO(config=config)
-        detector_window = cv2.namedWindow(DETECTOR_STATE_WINDOW_NAME, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(DETECTOR_STATE_WINDOW_NAME, camera_parameters['width'],camera_parameters['height'])
+        if ENABLE_DETECTOR:
+            CONFIG_PATH = './traffic_light_detection_module/config.json'
+            DETECTOR_STATE_WINDOW_NAME = 'Detector state'
+            with open(os.path.abspath(CONFIG_PATH), 'r') as detector_config_file:
+                config = json.load(detector_config_file)
+            detector = YOLO(config=config)
+            detector_window = cv2.namedWindow(DETECTOR_STATE_WINDOW_NAME, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(DETECTOR_STATE_WINDOW_NAME, camera_parameters['width'],camera_parameters['height'])
         
         for frame in range(TOTAL_EPISODE_FRAMES):
             # Gather current data from the CARLA server
@@ -830,17 +833,18 @@ def exec_waypoint_nav_demo(args):
             # simulation frequency.
             if frame % LP_FREQUENCY_DIVISOR == 0:
 
-                camera_data = sensor_data.get('CameraRGB', None)
-                if camera_data is not None:
-                    # passala al detector
-                    camera_data = to_bgra_array(camera_data)
-                    camera_data_resized = cv2.resize(camera_data, dsize=(camera_parameters['width'], camera_parameters['height']))
-                    # cv2.imshow(DETECTOR_STATE_WINDOW_NAME, camera_data_resized)
-                    # cv2.waitKey(1)
-                    predictions = detector.predict(camera_data)
-                    plt_image = draw_boxes(camera_data_resized, predictions, config['model']['classes'])
-                    cv2.imshow(DETECTOR_STATE_WINDOW_NAME, plt_image)
-                    cv2.waitKey(1)
+                if ENABLE_DETECTOR:
+                    camera_data = sensor_data.get('CameraRGB', None)
+                    if camera_data is not None:
+                        # passala al detector
+                        camera_data = to_bgra_array(camera_data)
+                        camera_data_resized = cv2.resize(camera_data, dsize=(camera_parameters['width'], camera_parameters['height']))
+                        # cv2.imshow(DETECTOR_STATE_WINDOW_NAME, camera_data_resized)
+                        # cv2.waitKey(1)
+                        predictions = detector.predict(camera_data)
+                        plt_image = draw_boxes(camera_data_resized, predictions, config['model']['classes'])
+                        cv2.imshow(DETECTOR_STATE_WINDOW_NAME, plt_image)
+                        cv2.waitKey(1)
 
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
@@ -893,7 +897,7 @@ def exec_waypoint_nav_demo(args):
                             wp_distance.append(
                                     np.sqrt((local_waypoints_np[i, 0] - local_waypoints_np[i-1, 0])**2 +
                                             (local_waypoints_np[i, 1] - local_waypoints_np[i-1, 1])**2))
-                        wp_distance.append(0)  # last distance is 0 because it is the distance
+                        wp_distance.append(0)  # last distance is 0 because it is the distanceW
                                             # from the last waypoint to the last waypoint
 
                         # Linearly interpolate between waypoints and store in a list
