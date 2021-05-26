@@ -849,13 +849,20 @@ def exec_waypoint_nav_demo(args):
                         camera_data = to_bgra_array(camera_data)
                         normalized_depth_data = depth_to_array(depth_data)
                         depth_data = normalized_depth_data*1000 # convert to meters
-                        state, distance = tl_detector.detect_and_estimate_distance(camera_data, depth_data)
-                        alpha = 0.7
+                        semaphore_state, semaphore_distance = tl_detector.detect_and_estimate_distance(camera_data, depth_data)
+                        alpha = 0.4
                         history = 0
-                        if distance is not None:
-                            avg_depth = alpha*distance + (1-alpha)*history
-                            history += avg_depth
-                        print(f"Semaphore state: {state} - semaphore distance: {avg_depth}") # DEBUG
+                        history_acc = 0
+                        n_updates = 0
+                        if semaphore_distance is not None:
+                            n_updates += 1
+                            avg_depth = alpha*semaphore_distance + (1-alpha)*history
+                            history_acc += avg_depth
+                            history = history_acc/n_updates
+                        # NOTA: stampiamo la avg_depth, che è diversa da zero anche se la distanza è None, perché in quest'ultimo
+                        # caso ci limitiamo a non aggiornare la avg_depth, quindi potremmo avere stampe con stato None e distanza
+                        # valida.
+                        print(f"Semaphore state: {semaphore_state} - semaphore distance: {avg_depth}") # DEBUG
                         cv2.imshow('Depth data', normalized_depth_data) # DEBUG
                         cv2.waitKey(1) # DEBUG
 
@@ -870,7 +877,7 @@ def exec_waypoint_nav_demo(args):
                 bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
 
                 # Perform a state transition in the behavioural planner.
-                bp.transition_state(waypoints, ego_state, current_speed)
+                bp.transition_state(waypoints, ego_state, current_speed, semaphore_state, avg_depth)
 
                 # Compute the goal state set from the behavioural planner's computed goal state.
                 goal_state_set = lp.get_goal_state_set(bp._goal_index, bp._goal_state, waypoints, ego_state)
@@ -896,7 +903,7 @@ def exec_waypoint_nav_demo(args):
                 if best_path is not None:
                     # Compute the velocity profile for the path, and compute the waypoints.
                     desired_speed = bp._goal_state[2]
-                    decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP
+                    decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT
                     local_waypoints = lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, decelerate_to_stop, None, bp._follow_lead_vehicle)
 
                     if local_waypoints != None:
@@ -1093,7 +1100,7 @@ def main():
         '-q', '--quality-level',
         choices=['Low', 'Epic'],
         type=lambda s: s.title(),
-        default='Low',
+        default='Epic',
         help='graphics quality level.')
     argparser.add_argument(
         '-c', '--carla-settings',
