@@ -59,7 +59,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
-ENABLE_DETECTOR = True
+ENABLE_DETECTOR = False
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -841,6 +841,8 @@ def exec_waypoint_nav_demo(args):
             # simulation frequency.
             if frame % LP_FREQUENCY_DIVISOR == 0:
 
+                semaphore_state = None
+                avg_depth = None
                 if ENABLE_DETECTOR:
                     camera_data = sensor_data.get('CameraRGB', None)
                     depth_data = sensor_data.get("DepthCamera", None)
