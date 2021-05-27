@@ -799,6 +799,26 @@ def exec_waypoint_nav_demo(args):
 
             # UPDATE HERE the obstacles list
             obstacles = []
+            for agent in measurement_data.non_player_agents:
+                # agent.id  # unique id of the agent
+                # print(agent)
+                attr = None
+                if agent.HasField('vehicle'):
+                    attr = 'vehicle'
+                elif agent.HasField('pedestrian'):
+                    attr = 'pedestrian'
+                else:
+                    continue
+
+                agent_type = getattr(agent, attr)
+                location = agent_type.transform.location
+                dimensions = agent_type.bounding_box.extent
+                orientation = agent_type.transform.rotation
+
+                obstacles += obstacle_to_world(location, dimensions, orientation)
+                # agent.vehicle.forward_speed
+                # agent.vehicle.transform
+                # agent.vehicle.bounding_box
 
             # Update pose and timestamp
             prev_timestamp = current_timestamp
@@ -891,7 +911,7 @@ def exec_waypoint_nav_demo(args):
                 paths = local_planner.transform_paths(paths, ego_state)
 
                 # Perform collision checking.
-                collision_check_array = lp._collision_checker.collision_check(paths, [])
+                collision_check_array = lp._collision_checker.collision_check(paths, [obstacles])
 
                 # Compute the best local path.
                 best_index = lp._collision_checker.select_best_path_index(paths, collision_check_array, bp._goal_state)
@@ -973,6 +993,7 @@ def exec_waypoint_nav_demo(args):
                 trajectory_fig.roll("car", current_x, current_y)
                 
                 # Load parked car points
+                """
                 if len(obstacles) > 0:
                     x = obstacles[:,:,0]
                     y = obstacles[:,:,1]
@@ -980,6 +1001,7 @@ def exec_waypoint_nav_demo(args):
                     y = np.reshape(y, y.shape[0] * y.shape[1])
 
                     trajectory_fig.roll("obstacles_points", x, y)
+                """
 
                 
                 forward_speed_fig.roll("forward_speed", 
