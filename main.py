@@ -859,6 +859,7 @@ def exec_waypoint_nav_demo(args):
                     if camera_data is not None:
                         # passala al detector
                         camera_data = to_bgra_array(camera_data)
+<<<<<<< HEAD
                         camera_data_resized = cv2.resize(camera_data, dsize=(camera_parameters['width'], camera_parameters['height']))
                         # cv2.imshow(DETECTOR_STATE_WINDOW_NAME, camera_data_resized)
                         # cv2.waitKey(1)
@@ -866,6 +867,19 @@ def exec_waypoint_nav_demo(args):
                         plt_image = draw_boxes(camera_data_resized, predictions, config['model']['classes'])
                         cv2.imshow(DETECTOR_STATE_WINDOW_NAME, plt_image)
                         cv2.waitKey(1)
+=======
+                        normalized_depth_data = depth_to_array(depth_data)
+                        depth_data = normalized_depth_data*1000 # convert to meters
+                        state, distance = tl_detector.detect_and_estimate_distance(camera_data, depth_data)
+                        alpha = 0.7
+                        history = 0
+                        if distance is not None:
+                            avg_depth = alpha*distance + (1-alpha)*history
+                            history += avg_depth
+                        print(f"Semaphore state: {state} - semaphore distance: {avg_depth}") # DEBUG
+                        cv2.imshow('Depth data', normalized_depth_data) # DEBUG
+                        cv2.waitKey(1) # DEBUG
+>>>>>>> parent of e908f8d ((Almost) Completed traffic light detection integration)
 
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
