@@ -6,6 +6,8 @@ import math
 FOLLOW_LANE = 0
 DECELERATE_TO_STOP = 1
 STAY_STOPPED = 2
+DETECTED_RED_LIGHT = 3
+DECELERATE_AND_WAIT = 4
 # Stop speed threshold
 STOP_THRESHOLD = 0.02
 # Number of cycles before moving from stop sign.
@@ -22,12 +24,32 @@ class BehaviouralPlanner:
         self._goal_index                    = 0
         self._stop_count                    = 0
         self._lookahead_collision_index     = 0
+        self._TRAFFIC_LIGHT_RED_STATE = 1
+        self._TRAFFIC_LIGHT_GREEN_STATE = 0
+        self._red_light_count = 0
+        self._red_light_count_th = 5
+        self._green_light_count = 0
+        self._green_light_count_th = 3
+        self._traffic_light_distance_threshold = 16.0 # meters
+        self._stopped = False
     
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
 
+    def _update_goal_state(self, waypoints, ego_state):
+        # First, find the closest index to the ego vehicle.
+        closest_len, closest_index = get_closest_index(waypoints, ego_state)
+
+        # Next, find the goal index that lies within the lookahead distance
+        # along the waypoints.
+        goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
+        while waypoints[goal_index][2] <= 0.1: goal_index += 1
+
+        self._goal_index = goal_index
+        self._goal_state = waypoints[goal_index]
+
     # Handles state transitions and computes the goal state.
-    def transition_state(self, waypoints, ego_state, closed_loop_speed):
+    def transition_state(self, waypoints, ego_state, closed_loop_speed, traffic_light_state, traffic_light_distance):
         """Handles state transitions and computes the goal state.  
         
         args:
@@ -79,19 +101,60 @@ class BehaviouralPlanner:
         # complete, and examine the check_for_stop_signs() function to
         # understand it.
         if self._state == FOLLOW_LANE:
+            if self._stopped:
+                self._stopped = False 
             #print("FOLLOW_LANE")
-            # First, find the closest index to the ego vehicle.
-            closest_len, closest_index = get_closest_index(waypoints, ego_state)
+            self._update_goal_state(waypoints, ego_state)
 
-            # Next, find the goal index that lies within the lookahead distance
-            # along the waypoints.
-            goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
-            while waypoints[goal_index][2] <= 0.1: goal_index += 1
+            if traffic_light_state is not None and traffic_light_distance is not None:
+                if traffic_light_state == self._TRAFFIC_LIGHT_RED_STATE:
+                    self._state = DETECTED_RED_LIGHT
+        
+        elif self._state == DETECTED_RED_LIGHT:
+            print(f"DETECTED RED LIGHT - {self._red_light_count}") # DEBUG
+            self._update_goal_state(waypoints, ego_state)
 
-            self._goal_index = goal_index
-            self._goal_state = waypoints[goal_index]
+            if traffic_light_state == self._TRAFFIC_LIGHT_RED_STATE:
+                self._red_light_count += 1
+            elif traffic_light_state == self._TRAFFIC_LIGHT_GREEN_STATE or traffic_light_state is None:
+                self._red_light_count -= 1
             
+            if self._red_light_count <= 0:
+                self._red_light_count = 0
+                self._state = FOLLOW_LANE
+            
+            if traffic_light_distance is not None and self._red_light_count >= self._red_light_count_th and traffic_light_distance <= self._traffic_light_distance_threshold:
+                # impostare come prossimo obiettivo un waypoint vicino al semaforo e mettergli come velocità target zero
+                # abbiamo detto che possiamo farlo prendendo un waypoint ad una distanza <= a quella alla quale si trova il semaforo,
+                # stesso con la funzione che ci hanno dato loro, e settare la velocità desiderata in quel punto a zero. Per far ciò,
+                # abbiamo bisogno di cambiare temporaneamente la distanza di lookahead
 
+                # update goal state by taking the farthest waypoint within the distance between the vehicle and the semaphore
+                lookahead_backup = self._lookahead
+                self._lookahead = traffic_light_distance-2
+                self._update_goal_state(waypoints, ego_state)
+                # reset previous lookahead value
+                self._lookahead = lookahead_backup
+                # set target speed to zero
+                self._goal_state[2] = 0
+
+                self._red_light_count = 0
+                self._state = DECELERATE_AND_WAIT
+        
+        elif self._state == DECELERATE_AND_WAIT:
+            print("DECELERATE TO TRAFFIC LIGHT") # DEBUG
+            if traffic_light_state == self._TRAFFIC_LIGHT_GREEN_STATE:
+                self._green_light_count += 1
+            if self._green_light_count >= self._green_light_count_th:
+                self._update_goal_state(waypoints, ego_state)
+                self._green_light_count = 0
+                self._state = FOLLOW_LANE
+            print(f"Closed loop speed: {abs(closed_loop_speed)}") # DEBUG
+            if abs(closed_loop_speed) <= STOP_THRESHOLD and not self._stopped:
+                # reset the count to mitigate the effect of spurious detections
+                self._green_light_count = 0
+                self._stopped = True
+               
         # In this state, check if we have reached a complete stop. Use the
         # closed loop speed to do so, to ensure we are actually at a complete
         # stop, and compare to STOP_THRESHOLD.  If so, transition to the next
