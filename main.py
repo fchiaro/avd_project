@@ -37,13 +37,11 @@ sys.path.append(os.path.abspath('./traffic_light_detection_module/'))
 from yolo import YOLO
 from postprocessing import draw_boxes
 
-from traffic_light_detection import TrafficLightDetector
-
 
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 13          #  spawn index for player
+PLAYER_START_INDEX = 7          #  spawn index for player
 DESTINATION_INDEX = 15        # Setting a Destination HERE
 NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
 NUM_VEHICLES           = 30      # total number of vehicles to spawn
@@ -59,7 +57,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
-ENABLE_DETECTOR = True
+ENABLE_DETECTOR = False
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -213,23 +211,12 @@ def make_carla_settings(args):
     camera_fov = camera_parameters['fov']
 
     # Declare here your sensors
-
-    # RGB CAMERA
     camera0 = Camera("CameraRGB")
     camera0.set_image_size(camera_width, camera_height)
     camera0.set(FOV=camera_fov)
     camera0.set_position(cam_x_pos, cam_y_pos, cam_height)
     
     settings.add_sensor(camera0)
-
-    # DEPTH CAMERA
-    DEPTH_CAMERA_Y_OFFSET = 0.10
-    camera1 = Camera('DepthCamera', PostProcessing='Depth')
-    camera1.set_image_size(camera_width, camera_height)
-    camera1.set(FOV=camera_fov)
-    camera1.set_position(cam_x_pos, cam_y_pos+DEPTH_CAMERA_Y_OFFSET, cam_height)
-
-    settings.add_sensor(camera1)
 
     return settings
 
@@ -791,7 +778,12 @@ def exec_waypoint_nav_demo(args):
         #############################################
         if ENABLE_DETECTOR:
             CONFIG_PATH = './traffic_light_detection_module/config.json'
-            tl_detector = TrafficLightDetector(CONFIG_PATH)
+            DETECTOR_STATE_WINDOW_NAME = 'Detector state'
+            with open(os.path.abspath(CONFIG_PATH), 'r') as detector_config_file:
+                config = json.load(detector_config_file)
+            detector = YOLO(config=config)
+            detector_window = cv2.namedWindow(DETECTOR_STATE_WINDOW_NAME, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(DETECTOR_STATE_WINDOW_NAME, camera_parameters['width'],camera_parameters['height'])
         
         for frame in range(TOTAL_EPISODE_FRAMES):
             # Gather current data from the CARLA server
@@ -843,28 +835,16 @@ def exec_waypoint_nav_demo(args):
 
                 if ENABLE_DETECTOR:
                     camera_data = sensor_data.get('CameraRGB', None)
-                    depth_data = sensor_data.get("DepthCamera", None)
-                    if camera_data is not None and depth_data is not None:
+                    if camera_data is not None:
                         # passala al detector
                         camera_data = to_bgra_array(camera_data)
-                        normalized_depth_data = depth_to_array(depth_data)
-                        depth_data = normalized_depth_data*1000 # convert to meters
-                        semaphore_state, semaphore_distance = tl_detector.detect_and_estimate_distance(camera_data, depth_data)
-                        alpha = 0.4
-                        history = 0
-                        history_acc = 0
-                        n_updates = 0
-                        if semaphore_distance is not None:
-                            n_updates += 1
-                            avg_depth = alpha*semaphore_distance + (1-alpha)*history
-                            history_acc += avg_depth
-                            history = history_acc/n_updates
-                        # NOTA: stampiamo la avg_depth, che è diversa da zero anche se la distanza è None, perché in quest'ultimo
-                        # caso ci limitiamo a non aggiornare la avg_depth, quindi potremmo avere stampe con stato None e distanza
-                        # valida.
-                        print(f"Semaphore state: {semaphore_state} - semaphore distance: {avg_depth}") # DEBUG
-                        cv2.imshow('Depth data', normalized_depth_data) # DEBUG
-                        cv2.waitKey(1) # DEBUG
+                        camera_data_resized = cv2.resize(camera_data, dsize=(camera_parameters['width'], camera_parameters['height']))
+                        # cv2.imshow(DETECTOR_STATE_WINDOW_NAME, camera_data_resized)
+                        # cv2.waitKey(1)
+                        predictions = detector.predict(camera_data)
+                        plt_image = draw_boxes(camera_data_resized, predictions, config['model']['classes'])
+                        cv2.imshow(DETECTOR_STATE_WINDOW_NAME, plt_image)
+                        cv2.waitKey(1)
 
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
@@ -877,7 +857,7 @@ def exec_waypoint_nav_demo(args):
                 bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
 
                 # Perform a state transition in the behavioural planner.
-                bp.transition_state(waypoints, ego_state, current_speed, semaphore_state, avg_depth)
+                bp.transition_state(waypoints, ego_state, current_speed)
 
                 # Compute the goal state set from the behavioural planner's computed goal state.
                 goal_state_set = lp.get_goal_state_set(bp._goal_index, bp._goal_state, waypoints, ego_state)
@@ -903,7 +883,7 @@ def exec_waypoint_nav_demo(args):
                 if best_path is not None:
                     # Compute the velocity profile for the path, and compute the waypoints.
                     desired_speed = bp._goal_state[2]
-                    decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT
+                    decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP
                     local_waypoints = lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, decelerate_to_stop, None, bp._follow_lead_vehicle)
 
                     if local_waypoints != None:
@@ -1100,7 +1080,7 @@ def main():
         '-q', '--quality-level',
         choices=['Low', 'Epic'],
         type=lambda s: s.title(),
-        default='Epic',
+        default='Low',
         help='graphics quality level.')
     argparser.add_argument(
         '-c', '--carla-settings',
