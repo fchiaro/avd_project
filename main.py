@@ -32,6 +32,7 @@ from carla.controller import utils
 from carla.sensor import Camera
 from carla.image_converter import labels_to_array, depth_to_array, to_bgra_array
 from carla.planner.city_track import CityTrack
+from utils_collision_checker import *
 
 sys.path.append(os.path.abspath('./traffic_light_detection_module/'))
 from yolo import YOLO
@@ -43,10 +44,10 @@ from traffic_light_detection import TrafficLightDetector
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 148 # 148          #  spawn index for player
+PLAYER_START_INDEX = 10 # 148          #  spawn index for player
 DESTINATION_INDEX = 15        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
-NUM_VEHICLES           = 30      # total number of vehicles to spawn
+NUM_PEDESTRIANS        = 200      # total number of pedestrians to spawn
+NUM_VEHICLES           = 3    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
 SEED_VEHICLES          = 0     # seed for vehicle spawn randomizer
 ###############################################################################àà
@@ -60,6 +61,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # consistently
 
 ENABLE_DETECTOR = False
+
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -419,6 +421,8 @@ def make_correction(waypoint,previuos_waypoint,desired_speed):
 def exec_waypoint_nav_demo(args):
     """ Executes waypoint navigation demo.
     """
+    no_path_found = 0
+
     with make_carla_client(args.host, args.port) as client:
         print('Carla client connected.')
 
@@ -797,11 +801,18 @@ def exec_waypoint_nav_demo(args):
             # Gather current data from the CARLA server
             measurement_data, sensor_data = client.read_data()
 
+            # Update pose and timestamp
+            prev_timestamp = current_timestamp
+            current_x, current_y, current_z, current_pitch, current_roll, current_yaw = \
+                get_current_pose(measurement_data)
+            current_speed = measurement_data.player_measurements.forward_speed
+            current_timestamp = float(measurement_data.game_timestamp) / 1000.0
+
             # UPDATE HERE the obstacles list
             obstacles = []
             for agent in measurement_data.non_player_agents:
                 # agent.id  # unique id of the agent
-                # print(agent)
+
                 attr = None
                 if agent.HasField('vehicle'):
                     attr = 'vehicle'
@@ -811,22 +822,20 @@ def exec_waypoint_nav_demo(args):
                     continue
 
                 agent_type = getattr(agent, attr)
-                print(agent_type)
+
                 location = agent_type.transform.location
                 dimensions = agent_type.bounding_box.extent
                 orientation = agent_type.transform.rotation
 
+
+                # obstacles += predict_collision_points(agent_type, 0.3, 5, measurement_data.player_measurements)
+
                 obstacles += obstacle_to_world(location, dimensions, orientation)
+
                 # agent.vehicle.forward_speed
                 # agent.vehicle.transform
                 # agent.vehicle.bounding_box
 
-            # Update pose and timestamp
-            prev_timestamp = current_timestamp
-            current_x, current_y, current_z, current_pitch, current_roll, current_yaw = \
-                get_current_pose(measurement_data)
-            current_speed = measurement_data.player_measurements.forward_speed
-            current_timestamp = float(measurement_data.game_timestamp) / 1000.0
 
             # Wait for some initial time before starting the demo
             if current_timestamp <= WAIT_TIME_BEFORE_START:
@@ -862,8 +871,8 @@ def exec_waypoint_nav_demo(args):
             # simulation frequency.
             if frame % LP_FREQUENCY_DIVISOR == 0:
 
-                semaphore_state = None
-                avg_depth = None
+                traffic_light_state = None
+                traffic_light_distance = None
                 if ENABLE_DETECTOR:
                     camera_data = sensor_data.get('CameraRGB', None)
                     depth_data = sensor_data.get("DepthCamera", None)
@@ -902,13 +911,17 @@ def exec_waypoint_nav_demo(args):
                 paths = local_planner.transform_paths(paths, ego_state)
 
                 # Perform collision checking.
+                # print(obstacles)
                 collision_check_array = lp._collision_checker.collision_check(paths, [obstacles])
 
                 # Compute the best local path.
                 best_index = lp._collision_checker.select_best_path_index(paths, collision_check_array, bp._goal_state)
                 # If no path was feasible, continue to follow the previous best path.
+
                 if best_index == None:
                     best_path = lp._prev_best_path
+                    no_path_found += 1
+                    print(str(no_path_found) + " NO PATH FOUND!!!!!!")
                 else:
                     best_path = paths[best_index]
                     lp._prev_best_path = best_path
