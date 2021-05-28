@@ -59,7 +59,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
-ENABLE_DETECTOR = True
+ENABLE_DETECTOR = False
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -799,6 +799,26 @@ def exec_waypoint_nav_demo(args):
 
             # UPDATE HERE the obstacles list
             obstacles = []
+            for agent in measurement_data.non_player_agents:
+                # agent.id  # unique id of the agent
+                # print(agent)
+                attr = None
+                if agent.HasField('vehicle'):
+                    attr = 'vehicle'
+                elif agent.HasField('pedestrian'):
+                    attr = 'pedestrian'
+                else:
+                    continue
+
+                agent_type = getattr(agent, attr)
+                location = agent_type.transform.location
+                dimensions = agent_type.bounding_box.extent
+                orientation = agent_type.transform.rotation
+
+                obstacles += obstacle_to_world(location, dimensions, orientation)
+                # agent.vehicle.forward_speed
+                # agent.vehicle.transform
+                # agent.vehicle.bounding_box
 
             # Update pose and timestamp
             prev_timestamp = current_timestamp
@@ -841,6 +861,8 @@ def exec_waypoint_nav_demo(args):
             # simulation frequency.
             if frame % LP_FREQUENCY_DIVISOR == 0:
 
+                semaphore_state = None
+                avg_depth = None
                 if ENABLE_DETECTOR:
                     camera_data = sensor_data.get('CameraRGB', None)
                     depth_data = sensor_data.get("DepthCamera", None)
@@ -879,7 +901,7 @@ def exec_waypoint_nav_demo(args):
                 paths = local_planner.transform_paths(paths, ego_state)
 
                 # Perform collision checking.
-                collision_check_array = lp._collision_checker.collision_check(paths, [])
+                collision_check_array = lp._collision_checker.collision_check(paths, [obstacles])
 
                 # Compute the best local path.
                 best_index = lp._collision_checker.select_best_path_index(paths, collision_check_array, bp._goal_state)
