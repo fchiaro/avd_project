@@ -158,3 +158,7 @@ class CollisionChecker:
                 best_index = i
 
         return best_index
+
+
+## TEST
+agent =

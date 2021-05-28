@@ -2,22 +2,15 @@ import numpy as np
 import math
 import scipy.spatial
 
-CIRCLE_OFFSETS = [-1.0, 1.0, 3.0]  # m
-CIRCLE_RADII = [1.5, 1.5, 1.5]  # m
+CIRCLE_OFFSETS = [0, 0, 0]  # m
+CIRCLE_RADII = [0.6, 0.6, 0.6]  # m
 
 
-def predict_collision_points(agent, dt, time_to_horizon, vehicle):
+def predict_collision_points(agent_x0, agent_y0, agent_yaw, agent_speed, vehicle_x0, vehicle_y0, vehicle_yaw, vehicle_speed, dt, time_to_horizon,):
     t = 0
 
-    agent_x0 = agent.transform.location.x
-    agent_y0 = agent.transform.location.y
-    agent_yaw = agent.transform.rotation.yaw
-    agent_speed = agent.forward_speed
-
-    vehicle_x0 = vehicle.transform.location.x
-    vehicle_y0 = vehicle.transform.location.y
-    vehicle_yaw = vehicle.transform.rotation.yaw
-    vehicle_speed = vehicle.forward_speed
+    agent_yaw = math.radians(agent_yaw)
+    vehicle_yaw = math.radians(vehicle_yaw)
 
     colliding_points = []
 
@@ -58,4 +51,27 @@ def points_collide(vehicle_p, vehicle_yaw, agent_p):
     collision_dists = np.subtract(collision_dists, CIRCLE_RADII)
     collision_free = not np.any(collision_dists < 0)
 
-    return collision_free
+    return not collision_free
+
+
+# TEST
+test_agent_x = 0.5
+test_agent_y = 2
+test_agent_yaw = 0
+test_agent_speed = 2
+
+test_vehicle_x = 3
+test_vehicle_y = 1
+test_vehicle_yaw = 90
+test_vehicle_speed = 1
+
+print(predict_collision_points(agent_x0=test_agent_x,
+                               agent_y0=test_agent_y,
+                               agent_yaw=test_agent_yaw,
+                               agent_speed=test_agent_speed,
+                               vehicle_x0=test_vehicle_x,
+                               vehicle_y0=test_vehicle_y,
+                               vehicle_yaw=test_vehicle_yaw,
+                               vehicle_speed=test_vehicle_speed,
+                               dt=0.1,
+                               time_to_horizon=5))
