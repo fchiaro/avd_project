@@ -158,13 +158,14 @@ def obstacle_to_world(location, dimensions, orientation):
     y = location.y
     z = location.z
 
-    yaw = orientation.yaw * pi / 180
+    yaw = orientation.yaw * pi / 180 # convert to radians
 
     xrad = dimensions.x
     yrad = dimensions.y
     zrad = dimensions.z
 
     # Border points in the obstacle frame
+    # Sono i confini del bounding box rispetto al vehicle frame
     cpos = np.array([
         [-xrad, -xrad, -xrad, 0, xrad, xrad, xrad, 0],
         [-yrad, 0, yrad, yrad, yrad, 0, -yrad, -yrad]])
@@ -931,6 +932,8 @@ def exec_waypoint_nav_demo(args):
 
                 # Perform a state transition in the behavioural planner.
                 bp.transition_state(waypoints, ego_state, current_speed, traffic_light_state, traffic_light_distance)
+
+                # IL CHECK PER IL LEAD VEHICLE LORO LO FANNO QUI
 
                 # Compute the goal state set from the behavioural planner's computed goal state.
                 goal_state_set = lp.get_goal_state_set(bp._goal_index, bp._goal_state, waypoints, ego_state)
