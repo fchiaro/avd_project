@@ -1,4 +1,80 @@
 import math
+from main import obstacle_to_world
+
+
+def get_lead_vehicle(ego_vehicle, other_vehicles):
+    """[summary]
+
+    Args:
+        ego_vehicle ([type]): Agent object representing ego vehicle (as provided by CARLA).
+        other_vehicles ([type]): List of agent objects represnting other vehicles (as provided by CARLA).
+    """
+
+    # get the coordinates in world frame of ego vehicle's bounding box
+    ego_vehicle_box = obstacle_to_world(ego_vehicle.tranform.location, ego_vehicle.bounding_box.extent, ego_vehicle.transform.rotation)
+
+    # put previous coordinates into a suitable dictionary
+    ego_vehicle_world = _build_world_vehicle_box_dictionary(ego_vehicle_box)
+
+    other_vehicles_world = []
+
+    for vehicle in other_vehicles:
+        # get the coordinates in world frame of vehicle's bounding box
+        other_vehicle_box = obstacle_to_world(vehicle.transform.location, vehicle.bounding_box.extent, vehicle.transform.rotation)
+
+        # put previous coordinates into a suitable dictionary
+        other_vehicle_world = _build_world_vehicle_box_dictionary(other_vehicle_box)
+
+        # choose the boundary point of current vehicle that is closest to ego vehicle's top center point
+        min_distance_point = _position_wrt_ego(ego_vehicle_world,other_vehicle_world)
+
+        # if such point is the bottom center point, then the current vehicle leads ego vehicle
+        if min_distance_point[0] == 'bc':
+            # save current vehicle's transform and distance from ego vehicle's top center
+            other_vehicles_world.append(
+                {
+                    'vehicle_transform_location': vehicle.transform.location,
+                    'distance': min_distance_point[1],
+                    'length': vehicle.bounding_box.extent.x, # TODO: controlla se length e speed sono corretti
+                    'speed': vehicle.forward_speed
+                }
+            )
+
+    # TODO: prima di fare il return, nel for, bisogna assicurarsi di aggiungere alla lista soltanto veicoli che viaggino nella nostra stessa direzione,
+    # perché es. un veicolo alla nostra stessa altezza ma che viaggia nella direzione opposta potrebbe avere il bottom center più vicino rispetto ad uno
+    # che sta davanti a noi -> facciamo la differenza tra gli angoli di yaw e vediamo se è al di sotto di una certa soglia (es. 45°)
+
+    # return information regarding the vehicle located at minimum distance from ego vehicle
+    return min(other_vehicles_world, key=lambda dictionary:dictionary['distance'])
+
+
+def _build_world_vehicle_box_dictionary(box):
+    # bl stays for bottom left
+    return {
+        'bl': box[0],
+        'bc': box[1],
+        'br': box[2],
+        'cr': box[3],
+        'tr': box[4],
+        'tc': box[5],
+        'tl': box[6],
+        'cl': box[7]
+    }
+
+
+def _position_wrt_ego(ego, other):
+    # distance of ego vehicle's top center w.r.t. other vehicle's top center, center left, bottom center and right center
+    distances = {
+        'tc': math.sqrt((ego['tc'][0]-other['tc'][0])**2+(ego['tc'][1]-other['tc'][1])**2),
+        'cl': math.sqrt((ego['tc'][0]-other['cl'][0])**2+(ego['tc'][1]-other['cl'][1])**2),
+        'bc': math.sqrt((ego['tc'][0]-other['bc'][0])**2+(ego['tc'][1]-other['bc'][1])**2),
+        'cr': math.sqrt((ego['tc'][0]-other['cr'][0])**2+(ego['tc'][1]-other['cr'][1])**2)
+    }
+
+    # return the point, among the ones listed above, which is at minimum distance from ego vehicle's top center, together with
+    # its distance
+    return min(distances.items(), key=lambda item:item[1])
+
 
 def closest_traffic_light_distance(measurement_data):
     traffic_ligts = []
