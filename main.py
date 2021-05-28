@@ -811,6 +811,7 @@ def exec_waypoint_nav_demo(args):
                     continue
 
                 agent_type = getattr(agent, attr)
+                print(agent_type)
                 location = agent_type.transform.location
                 dimensions = agent_type.bounding_box.extent
                 orientation = agent_type.transform.rotation
