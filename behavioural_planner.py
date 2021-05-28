@@ -132,13 +132,17 @@ class BehaviouralPlanner:
                 self._state = FOLLOW_LANE
             
             if traffic_light_distance is not None and self._red_light_count >= self._red_light_count_th and traffic_light_distance <= self._traffic_light_distance_threshold:
+                print("Transitioning to decelerate and wait")
                 # impostare come prossimo obiettivo un waypoint vicino al semaforo e mettergli come velocità target zero
                 # abbiamo detto che possiamo farlo prendendo un waypoint ad una distanza <= a quella alla quale si trova il semaforo,
                 # stesso con la funzione che ci hanno dato loro, e settare la velocità desiderata in quel punto a zero. Per far ciò,
                 # abbiamo bisogno di cambiare temporaneamente la distanza di lookahead
 
                 # update goal state by taking the farthest waypoint within the distance between the vehicle and the semaphore
-                self._update_goal_state(waypoints, ego_state, lookahead=traffic_light_distance)
+                # self._update_goal_state(waypoints, ego_state, lookahead=traffic_light_distance)
+                # closest_len, closest_index = get_closest_index(waypoints, ego_state)
+                # self._goal_index = closest_index
+                # self._goal_state = waypoints[closest_index]
                 # set target speed to zero
                 self._goal_state[2] = 0
 

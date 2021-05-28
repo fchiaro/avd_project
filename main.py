@@ -43,10 +43,10 @@ from traffic_light_detection import TrafficLightDetector
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 148 # 148          #  spawn index for player
-DESTINATION_INDEX = 15        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
-NUM_VEHICLES           = 30      # total number of vehicles to spawn
+PLAYER_START_INDEX = 149 # 13 # 148          #  spawn index for player
+DESTINATION_INDEX = 23 #15        # Setting a Destination HERE
+NUM_PEDESTRIANS        = 1 # 30      # total number of pedestrians to spawn
+NUM_VEHICLES           = 0 # 30      # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
 SEED_VEHICLES          = 0     # seed for vehicle spawn randomizer
 ###############################################################################àà
@@ -59,7 +59,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
-ENABLE_DETECTOR = False
+ENABLE_DETECTOR = True
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -915,7 +915,8 @@ def exec_waypoint_nav_demo(args):
                 if best_path is not None:
                     # Compute the velocity profile for the path, and compute the waypoints.
                     desired_speed = bp._goal_state[2]
-                    decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT
+                    # decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT
+                    decelerate_to_stop = False
                     local_waypoints = lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, decelerate_to_stop, None, bp._follow_lead_vehicle)
 
                     if local_waypoints != None:
