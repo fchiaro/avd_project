@@ -3,6 +3,7 @@ import os
 import sys
 import cv2
 import math
+import numpy as np
 
 sys.path.append(os.path.abspath('./traffic_light_detection_module/')) # the append is temporary, just for the execution time of this module
 
@@ -34,6 +35,16 @@ class TrafficLightDetector:
             [type]: [description]
         """
         semaphore_predictions = self._detector.predict(bgr_image)
+
+        for prediction in semaphore_predictions:
+            height = prediction.ymax - prediction.ymin
+            height_reduction = (0.80*height)/2
+            prediction.ymin = prediction.ymin + height_reduction
+            prediction.ymax = prediction.ymax - height_reduction
+            width = prediction.xmax - prediction.xmin
+            width_reduction = (0.70*width)/2
+            prediction.xmin = prediction.xmin + width_reduction
+            prediction.xmax = prediction.xmax - width_reduction
 
         if self._show_detections:
             img_resized = cv2.resize(bgr_image, dsize=(self._config['model']['image_w'], self._config['model']['image_h']))
@@ -72,7 +83,27 @@ class TrafficLightDetector:
         # and the semaphore
         # we ignore these offset because of presence of largers error due to camera noise and detector errors
 
-        depth_data = depth_image_array[math.floor(semaphore_prediction.ymin*depth_image_array.shape[0]):math.floor(semaphore_prediction.ymax*depth_image_array.shape[0]), \
-            math.floor(semaphore_prediction.xmin*depth_image_array.shape[1]):math.floor(semaphore_prediction.xmax*depth_image_array.shape[1])]
+        ymin = math.floor(semaphore_prediction.ymin*depth_image_array.shape[0])
+        ymax = math.floor(semaphore_prediction.ymax*depth_image_array.shape[0])
+        xmin = math.floor(semaphore_prediction.xmin*depth_image_array.shape[1])
+        xmax = math.floor(semaphore_prediction.xmax*depth_image_array.shape[1])
+
+        depth_data = depth_image_array[ymin:ymax,xmin:xmax]
         
-        return depth_data.mean()
+        # gaussian-weighted average
+        # gaussian_weights = np.random.normal(size=(depth_data.shape[0], depth_data.shape[1]), loc=100, scale=0.01)
+        # scale for negative weights
+        # gaussian_weights = gaussian_weights-np.min(gaussian_weights)
+        # traffic_light_distance = np.average(depth_data, weights=gaussian_weights)
+        traffic_light_distance = np.mean(depth_data)
+        
+        norm_depth = depth_image_array/1000
+        cv2.rectangle(norm_depth, (xmin,ymin), (xmax, ymax), (255,255,255), thickness=1)
+        norm_depth = norm_depth[ymin-20:ymax+20, xmin-40:xmax+10]
+        cv2.putText(norm_depth, str(int(traffic_light_distance)), (10, 10), cv2.FONT_HERSHEY_SIMPLEX, .3, (255,255,255),1, cv2.LINE_AA)
+        cv2.namedWindow('Depth data', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Depth data', 400, 400)
+        cv2.imshow('Depth data', norm_depth)
+        cv2.waitKey(1)
+
+        return traffic_light_distance

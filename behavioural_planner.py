@@ -27,16 +27,22 @@ class BehaviouralPlanner:
         self._TRAFFIC_LIGHT_RED_STATE = 1
         self._TRAFFIC_LIGHT_GREEN_STATE = 0
         self._red_light_count = 0
-        self._red_light_count_th = 5
+        self._red_light_count_th = 5 # frames
         self._green_light_count = 0
-        self._green_light_count_th = 3
-        self._traffic_light_distance_threshold = 16.0 # meters
+        self._green_light_count_th = 5 # frames
+        self._traffic_light_distance_threshold = 9.0 # meters
         self._stopped = False
+        self._n_subsequent_miss = 0
+        self._n_subsequent_miss_threshold = 10 # frames
     
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
 
-    def _update_goal_state(self, waypoints, ego_state):
+    def _update_goal_state(self, waypoints, ego_state, lookahead=None):
+        lookahead_backup = self._lookahead
+        if lookahead is not None:
+            self._lookahead = lookahead
+        # print(f"[Update goal state] lookahead: {self._lookahead}") # DEBUG
         # First, find the closest index to the ego vehicle.
         closest_len, closest_index = get_closest_index(waypoints, ego_state)
 
@@ -47,6 +53,8 @@ class BehaviouralPlanner:
 
         self._goal_index = goal_index
         self._goal_state = waypoints[goal_index]
+
+        self._lookahead = lookahead_backup
 
     # Handles state transitions and computes the goal state.
     def transition_state(self, waypoints, ego_state, closed_loop_speed, traffic_light_state, traffic_light_distance):
@@ -103,7 +111,7 @@ class BehaviouralPlanner:
         if self._state == FOLLOW_LANE:
             if self._stopped:
                 self._stopped = False 
-            #print("FOLLOW_LANE")
+            # print("FOLLOW_LANE")
             self._update_goal_state(waypoints, ego_state)
 
             if traffic_light_state is not None and traffic_light_distance is not None:
@@ -111,7 +119,7 @@ class BehaviouralPlanner:
                     self._state = DETECTED_RED_LIGHT
         
         elif self._state == DETECTED_RED_LIGHT:
-            print(f"DETECTED RED LIGHT - {self._red_light_count}") # DEBUG
+            # print(f"DETECTED RED LIGHT - {self._red_light_count}") # DEBUG
             self._update_goal_state(waypoints, ego_state)
 
             if traffic_light_state == self._TRAFFIC_LIGHT_RED_STATE:
@@ -130,11 +138,7 @@ class BehaviouralPlanner:
                 # abbiamo bisogno di cambiare temporaneamente la distanza di lookahead
 
                 # update goal state by taking the farthest waypoint within the distance between the vehicle and the semaphore
-                lookahead_backup = self._lookahead
-                self._lookahead = traffic_light_distance-2
-                self._update_goal_state(waypoints, ego_state)
-                # reset previous lookahead value
-                self._lookahead = lookahead_backup
+                self._update_goal_state(waypoints, ego_state, lookahead=traffic_light_distance)
                 # set target speed to zero
                 self._goal_state[2] = 0
 
@@ -142,25 +146,35 @@ class BehaviouralPlanner:
                 self._state = DECELERATE_AND_WAIT
         
         elif self._state == DECELERATE_AND_WAIT:
-            print("DECELERATE TO TRAFFIC LIGHT") # DEBUG
+            # print("DECELERATE AND WAIT") # DEBUG
             if traffic_light_state == self._TRAFFIC_LIGHT_GREEN_STATE:
                 self._green_light_count += 1
-            if self._green_light_count >= self._green_light_count_th:
+
+            if traffic_light_state is None or traffic_light_distance is None:
+                self._n_subsequent_miss += 1
+            else:
+                self._n_subsequent_miss = 0
+            
+            # print(f"Closed loop speed: {abs(closed_loop_speed)}") # DEBUG
+
+            if self._green_light_count >= self._green_light_count_th or self._n_subsequent_miss >= self._n_subsequent_miss_threshold:
+                if self._n_subsequent_miss == self._n_subsequent_miss_threshold:
+                    print("Transitioning to follow lane due to high number of subsequent miss")
                 self._update_goal_state(waypoints, ego_state)
                 self._green_light_count = 0
+                self._n_subsequent_miss = 0
                 self._state = FOLLOW_LANE
-            print(f"Closed loop speed: {abs(closed_loop_speed)}") # DEBUG
-            if abs(closed_loop_speed) <= STOP_THRESHOLD and not self._stopped:
+            elif abs(closed_loop_speed) <= STOP_THRESHOLD and not self._stopped:
                 # reset the count to mitigate the effect of spurious detections
                 self._green_light_count = 0
                 self._stopped = True
-               
+
         # In this state, check if we have reached a complete stop. Use the
         # closed loop speed to do so, to ensure we are actually at a complete
         # stop, and compare to STOP_THRESHOLD.  If so, transition to the next
         # state.
         elif self._state == DECELERATE_TO_STOP:
-            #print("DECELERATE_TO_STOP")
+            # print("DECELERATE_TO_STOP") # DEBUG
             if abs(closed_loop_speed) <= STOP_THRESHOLD:
                 self._state = STAY_STOPPED
                 self._stop_count = 0
@@ -238,21 +252,27 @@ class BehaviouralPlanner:
         # consideration.
         arc_length = closest_len
         wp_index = closest_index
+        old_arch_length = arc_length
 
         # In this case, reaching the closest waypoint is already far enough for
         # the planner.  No need to check additional waypoints.
         if arc_length > self._lookahead:
+            # print(f"[Lookahead too small] Distance from the waypoint: {old_arch_length}")
             return wp_index
 
         # We are already at the end of the path.
         if wp_index == len(waypoints) - 1:
+            # print(f"[End of the path] Distance from the waypoint: {old_arch_length}")
             return wp_index
 
         # Otherwise, find our next waypoint.
         while wp_index < len(waypoints) - 1:
             arc_length += np.sqrt((waypoints[wp_index][0] - waypoints[wp_index+1][0])**2 + (waypoints[wp_index][1] - waypoints[wp_index+1][1])**2)
             if arc_length > self._lookahead: break
+            old_arch_length = arc_length
             wp_index += 1
+
+        # print(f"[Found waypoint <= lookahead] Distance from the waypoint: {old_arch_length}")
 
         return wp_index % len(waypoints)
                 
