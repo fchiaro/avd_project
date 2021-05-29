@@ -160,5 +160,3 @@ class CollisionChecker:
         return best_index
 
 
-## TEST
-agent =

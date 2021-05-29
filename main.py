@@ -847,19 +847,22 @@ def exec_waypoint_nav_demo(args):
                 orientation = agent_type.transform.rotation
 
                 # Build agent points
-                agent_points = obstacle_to_world(location, dimensions, orientation)
-                for point in agent_points:
+                distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
+                if distance < 20:
+                    print(distance)
+                    agent_points = obstacle_to_world(location, dimensions, orientation)
 
-                    obstacles += predict_collision_points(agent_x0=point[0],
-                                                          agent_y0=point[1],
-                                                          agent_yaw=orientation.yaw,
-                                                          agent_speed=agent_type.forward_speed,
-                                                          vehicle_x0=current_x,
-                                                          vehicle_y0=current_y,
-                                                          vehicle_yaw=current_yaw,
-                                                          vehicle_speed=current_speed,
-                                                          dt=0.5,
-                                                          time_to_horizon=2)
+                    for point in agent_points:
+                        obstacles += predict_collision_points(agent_x0=point[0],
+                                                              agent_y0=point[1],
+                                                              agent_yaw=orientation.yaw,
+                                                              agent_speed=agent_type.forward_speed,
+                                                              vehicle_x0=current_x,
+                                                              vehicle_y0=current_y,
+                                                              vehicle_yaw=current_yaw,
+                                                              vehicle_speed=current_speed,
+                                                              dt=0.3,
+                                                              time_to_horizon=10)
 
                 # obstacles += obstacle_to_world(location, dimensions, orientation)
 
@@ -946,7 +949,10 @@ def exec_waypoint_nav_demo(args):
 
                 # Perform collision checking.
                 print(obstacles)
-                collision_check_array = lp._collision_checker.collision_check(paths, [obstacles])
+                if len(obstacles)>0:
+                    obstacles = [obstacles]
+
+                collision_check_array = lp._collision_checker.collision_check(paths, obstacles)
 
                 # Compute the best local path.
                 best_index = lp._collision_checker.select_best_path_index(paths, collision_check_array, bp._goal_state)

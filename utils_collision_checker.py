@@ -2,8 +2,8 @@ import numpy as np
 import math
 import scipy.spatial
 
-CIRCLE_OFFSETS = [0, 0, 0]  # m
-CIRCLE_RADII = [0.6, 0.6, 0.6]  # m
+CIRCLE_OFFSETS = [-1.0, 1.0, 3.0]  # m
+CIRCLE_RADII = [1.5, 1.5, 1.5]  # m
 
 
 def predict_collision_points(agent_x0, agent_y0, agent_yaw, agent_speed, vehicle_x0, vehicle_y0, vehicle_yaw, vehicle_speed, dt, time_to_horizon,):
@@ -55,8 +55,8 @@ def points_collide(vehicle_p, vehicle_yaw, agent_p):
 
 
 # TEST
-test_agent_x = 0.5
-test_agent_y = 2
+test_agent_x = 1
+test_agent_y = 1.9
 test_agent_yaw = 0
 test_agent_speed = 2
 
