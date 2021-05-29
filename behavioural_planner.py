@@ -396,38 +396,39 @@ class BehaviouralPlanner:
             if lead_vehicle is None or lead_vehicle_distance is None or lead_vehicle_distance > self._follow_lead_vehicle_lookahead:
                 return None
 
-            self._follow_lead_vehicle = True
+            # self._follow_lead_vehicle = True
 
             self._lead_vehicle = lead_vehicle
             
-            print(f"Found new leading vehicle! - {lead_vehicle.id}")
+            # print(f"Found new leading vehicle! - {lead_vehicle.id}")
+            print(f"Following {lead_vehicle.id}")
 
             return lead_vehicle
 
-        else:
-            print(f"Following the same car - {self._lead_vehicle.id}")
+        # else:
+        #     print(f"Following the same car - {self._lead_vehicle.id}")
 
-            lead_car_delta_vector = [self._lead_vehicle.transform.location.x - ego_state.transform.location.x, 
-                                     self._lead_vehicle.transform.location.y - ego_state.transform.location.y]
-            lead_car_distance = np.linalg.norm(lead_car_delta_vector)
+        #     lead_car_delta_vector = [self._lead_vehicle.transform.location.x - ego_state.transform.location.x, 
+        #                              self._lead_vehicle.transform.location.y - ego_state.transform.location.y]
+        #     lead_car_distance = np.linalg.norm(lead_car_delta_vector)
 
-            # Add a 15m buffer to prevent oscillations for the distance check.
-            if lead_car_distance < self._follow_lead_vehicle_lookahead + 15:
-                return self._lead_vehicle
-            # Check to see if the lead vehicle is still within the ego vehicle's
-            # frame of view.
-            lead_car_delta_vector = np.divide(lead_car_delta_vector, lead_car_distance)
-            ego_heading_vector = [math.cos(ego_state.transform.rotation.yaw), math.sin(ego_state.transform.rotation.yaw)]
-            if np.dot(lead_car_delta_vector, ego_heading_vector) > (1 / math.sqrt(2)):
-                return self._lead_vehicle
+        #     # Add a 15m buffer to prevent oscillations for the distance check.
+        #     if lead_car_distance < self._follow_lead_vehicle_lookahead + 15:
+        #         return self._lead_vehicle
+        #     # Check to see if the lead vehicle is still within the ego vehicle's
+        #     # frame of view.
+        #     lead_car_delta_vector = np.divide(lead_car_delta_vector, lead_car_distance)
+        #     ego_heading_vector = [math.cos(ego_state.transform.rotation.yaw), math.sin(ego_state.transform.rotation.yaw)]
+        #     if np.dot(lead_car_delta_vector, ego_heading_vector) > (1 / math.sqrt(2)):
+        #         return self._lead_vehicle
 
-            self._follow_lead_vehicle = False
+        #     self._follow_lead_vehicle = False
             
-            self._lead_vehicle = None
+        #     self._lead_vehicle = None
 
-            print("Lost leading vehicle")
+        #     print("Lost leading vehicle")
 
-            return None
+        #     return None
 
 # Compute the waypoint index that is closest to the ego vehicle, and return
 # it as well as the distance from the ego vehicle to that waypoint.

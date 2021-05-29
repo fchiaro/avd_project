@@ -979,11 +979,11 @@ def exec_waypoint_nav_demo(args):
                         # from avd_utils import closest_traffic_light_distance
                         # print(f"Traffic light real distance: {closest_traffic_light_distance(measurement_data)}")
                         # #### END DEBUG ####
-                camera_data = sensor_data.get("CameraRGB2", None)
-                if camera_data is not None:
-                    camera_data = to_bgra_array(camera_data)
-                    cv2.imshow('Rear camera', camera_data)
-                    cv2.waitKey(1)
+                # camera_data = sensor_data.get("CameraRGB", None) # CameraRGB2
+                # if camera_data is not None:
+                #     camera_data = to_bgra_array(camera_data)
+                #     cv2.imshow('Rear camera', camera_data)
+                #     cv2.waitKey(1)
 
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
