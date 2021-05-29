@@ -6,12 +6,12 @@ def get_lead_vehicle(ego_vehicle, other_vehicles):
     """[summary]
 
     Args:
-        ego_vehicle ([type]): Agent object representing ego vehicle (as provided by CARLA).
-        other_vehicles ([type]): List of agent objects represnting other vehicles (as provided by CARLA).
+        ego_vehicle ([type]): Agent.vehicle object representing ego vehicle (as provided by CARLA).
+        other_vehicles ([type]): List of agent.vehicle objects represnting other vehicles (as provided by CARLA).
     """
 
     # get the coordinates in world frame of ego vehicle's bounding box
-    ego_vehicle_box = obstacle_to_world(ego_vehicle.tranform.location, ego_vehicle.bounding_box.extent, ego_vehicle.transform.rotation)
+    ego_vehicle_box = obstacle_to_world(ego_vehicle.transform.location, ego_vehicle.bounding_box.extent, ego_vehicle.transform.rotation)
 
     # put previous coordinates into a suitable dictionary
     ego_vehicle_world = _build_world_vehicle_box_dictionary(ego_vehicle_box)
@@ -33,10 +33,8 @@ def get_lead_vehicle(ego_vehicle, other_vehicles):
             # save current vehicle's transform and distance from ego vehicle's top center
             other_vehicles_world.append(
                 {
-                    'vehicle_transform_location': vehicle.transform.location,
-                    'distance': min_distance_point[1],
-                    'length': vehicle.bounding_box.extent.x, # TODO: controlla se length e speed sono corretti
-                    'speed': vehicle.forward_speed
+                    'vehicle': vehicle,
+                    'distance': min_distance_point[1]
                 }
             )
 
@@ -44,8 +42,13 @@ def get_lead_vehicle(ego_vehicle, other_vehicles):
     # perché es. un veicolo alla nostra stessa altezza ma che viaggia nella direzione opposta potrebbe avere il bottom center più vicino rispetto ad uno
     # che sta davanti a noi -> facciamo la differenza tra gli angoli di yaw e vediamo se è al di sotto di una certa soglia (es. 45°)
 
+    if len(other_vehicles_world) == 0:
+        return None, None
+
     # return information regarding the vehicle located at minimum distance from ego vehicle
-    return min(other_vehicles_world, key=lambda dictionary:dictionary['distance'])
+    lead_vehicle = min(other_vehicles_world, key=lambda dictionary:dictionary['distance'])
+
+    return lead_vehicle['vehicle'], lead_vehicle['distance']
 
 
 def _build_world_vehicle_box_dictionary(box):

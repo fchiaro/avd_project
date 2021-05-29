@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+from sys import float_repr_style, stderr
 import numpy as np
 import math
+from avd_utils import get_lead_vehicle
 
 # State machine states
 FOLLOW_LANE = 0
@@ -34,6 +36,7 @@ class BehaviouralPlanner:
         self._stopped = False
         self._n_subsequent_miss = 0
         self._n_subsequent_miss_threshold = 10 # frames
+        self._lead_vehicle = None
     
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
@@ -280,9 +283,46 @@ class BehaviouralPlanner:
 
         return wp_index % len(waypoints)
                 
+    def _filter_leading_vehicles(self, vehicles, ego_state, heading_cosine_threshold):
+        leading_vehicles = []
+        for vehicle in vehicles:
+            vehicle_delta_vector = [vehicle.transform.location.x - ego_state.transform.location.x, 
+                                     vehicle.transform.location.y - ego_state.transform.location.y]
+            vehicle_distance = np.linalg.norm(vehicle_delta_vector)
+            vehicle_delta_vector = np.divide(vehicle_delta_vector, 
+                                              vehicle_distance)
+            # IL COSENO E' IN RADIANTIIIIIIIIIII
+            yaw_radians = ego_state.transform.rotation.yaw/180*math.pi
+            ego_heading_vector = [math.cos(yaw_radians), math.sin(yaw_radians)]
+            is_in_front = np.dot(vehicle_delta_vector, ego_heading_vector) > heading_cosine_threshold
+            is_on_same_direction = abs(vehicle.transform.rotation.yaw-ego_state.transform.rotation.yaw) < 20
+            if is_in_front and is_on_same_direction:
+                # print(vehicle_delta_vector, '\n', ego_heading_vector)
+                # print(f"Ego yaw: {ego_state.transform.rotation.yaw} - vehicle yaw: {vehicle.transform.rotation.yaw}")
+                # print(f"internal distance: {vehicle_distance}")
+                # print(f"Dot product: {np.dot(vehicle_delta_vector, ego_heading_vector)}")
+                leading_vehicles.append(vehicle)
+        return leading_vehicles
+    
+
+    def _get_closest_vehicle(self, leading_vehicles, ego_state):
+        min_distance_vehicle = None
+        min_distance = None
+
+        for vehicle in leading_vehicles:
+            vehicle_delta_vector = [vehicle.transform.location.x - ego_state.transform.location.x, 
+                                     vehicle.transform.location.y - ego_state.transform.location.y]
+            vehicle_distance = np.linalg.norm(vehicle_delta_vector)
+            if min_distance is None or vehicle_distance < min_distance:
+                min_distance = vehicle_distance
+                min_distance_vehicle = vehicle
+        
+        return min_distance_vehicle, min_distance
+
+    
     # Checks to see if we need to modify our velocity profile to accomodate the
     # lead vehicle.
-    def check_for_lead_vehicle(self, ego_state, lead_car_position):
+    def check_for_lead_vehicle(self, ego_state, vehicles):
         """Checks for lead vehicle within the proximity of the ego car, such
         that the ego car should begin to follow the lead vehicle.
 
@@ -292,53 +332,68 @@ class BehaviouralPlanner:
                     ego_x and ego_y     : position (m)
                     ego_yaw             : top-down orientation [-pi to pi]
                     ego_open_loop_speed : open loop speed (m/s)
-            lead_car_position: The [x, y] position of the lead vehicle.
+            veicles: A list of agent.vehicle objects of all the vehicles in the world
                 Lengths are in meters, and it is in the global frame.
         sets:
             self._follow_lead_vehicle: Boolean flag on whether the ego vehicle
                 should follow (true) the lead car or not (false).
+
+        returns: 
+            agent.vehicle object of vehicle to be followed, None if such vehicle does
+            not exist.
         """
+
         # Check lead car position delta vector relative to heading, as well as
         # distance, to determine if car should be followed.
         # Check to see if lead vehicle is within range, and is ahead of us.
         if not self._follow_lead_vehicle:
-            # Compute the angle between the normalized vector between the lead vehicle
-            # and ego vehicle position with the ego vehicle's heading vector.
-            lead_car_delta_vector = [lead_car_position[0] - ego_state[0], 
-                                     lead_car_position[1] - ego_state[1]]
-            lead_car_distance = np.linalg.norm(lead_car_delta_vector)
-            # In this case, the car is too far away.   
-            if lead_car_distance > self._follow_lead_vehicle_lookahead:
-                return
+            
+            print("Looking for a new leading vehicle...")
 
-            lead_car_delta_vector = np.divide(lead_car_delta_vector, 
-                                              lead_car_distance)
-            ego_heading_vector = [math.cos(ego_state[2]), 
-                                  math.sin(ego_state[2])]
-            # Check to see if the relative angle between the lead vehicle and the ego
-            # vehicle lies within +/- 45 degrees of the ego vehicle's heading.
-            if np.dot(lead_car_delta_vector, 
-                      ego_heading_vector) < (1 / math.sqrt(2)):
-                return
+            vehicles = self._filter_leading_vehicles(vehicles, ego_state, (1 / math.sqrt(2)))
+
+            # check if there actually are vehicles proceding in our same direction
+            if len(vehicles) == 0:
+                return None
+
+            # get closest vehicle that is in front of ego vehicle
+            lead_vehicle, lead_vehicle_distance = self._get_closest_vehicle(vehicles, ego_state)
+
+            if lead_vehicle is None or lead_vehicle_distance is None or lead_vehicle_distance > self._follow_lead_vehicle_lookahead:
+                return None
 
             self._follow_lead_vehicle = True
 
+            self._lead_vehicle = lead_vehicle
+            
+            print(f"Found new leading vehicle! - {lead_vehicle.id}")
+
+            return lead_vehicle
+
         else:
-            lead_car_delta_vector = [lead_car_position[0] - ego_state[0], 
-                                     lead_car_position[1] - ego_state[1]]
+            print(f"Following the same car - {self._lead_vehicle.id}")
+
+            lead_car_delta_vector = [self._lead_vehicle.transform.location.x - ego_state.transform.location.x, 
+                                     self._lead_vehicle.transform.location.y - ego_state.transform.location.y]
             lead_car_distance = np.linalg.norm(lead_car_delta_vector)
 
             # Add a 15m buffer to prevent oscillations for the distance check.
             if lead_car_distance < self._follow_lead_vehicle_lookahead + 15:
-                return
+                return self._lead_vehicle
             # Check to see if the lead vehicle is still within the ego vehicle's
             # frame of view.
             lead_car_delta_vector = np.divide(lead_car_delta_vector, lead_car_distance)
-            ego_heading_vector = [math.cos(ego_state[2]), math.sin(ego_state[2])]
+            ego_heading_vector = [math.cos(ego_state.transform.rotation.yaw), math.sin(ego_state.transform.rotation.yaw)]
             if np.dot(lead_car_delta_vector, ego_heading_vector) > (1 / math.sqrt(2)):
-                return
+                return self._lead_vehicle
 
             self._follow_lead_vehicle = False
+            
+            self._lead_vehicle = None
+
+            print("Lost leading vehicle")
+
+            return None
 
 # Compute the waypoint index that is closest to the ego vehicle, and return
 # it as well as the distance from the ego vehicle to that waypoint.
