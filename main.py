@@ -40,6 +40,9 @@ from postprocessing import draw_boxes
 
 from traffic_light_detection import TrafficLightDetector
 
+
+######### WRAPPERS TO PRINT (LEADING) VEHICLE ID ##############
+# TODO: remove these wrappers and their usage
 class WrapperLocation():
     def __init__(self) -> None:
         self.x = None
@@ -58,6 +61,7 @@ class VehicleWithId():
         self.transform.rotation.yaw = None
         self.id = None
         self.forward_speed = None
+######################################################
 
 
 """
@@ -86,6 +90,8 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
+OBSTACLE_DETECTION_RADIUS = 5 # m
+PRINT = False
 ENABLE_DETECTOR = False
 
 WEATHERID = {
@@ -872,13 +878,14 @@ def exec_waypoint_nav_demo(args):
                 attr = None
                 if agent.HasField('vehicle'):
                     attr = 'vehicle'
+                    # TODO: remove wrappers usage
                     vehicle = VehicleWithId()
                     vehicle.transform.location.x = agent.vehicle.transform.location.x
                     vehicle.transform.location.y = agent.vehicle.transform.location.y
                     vehicle.transform.rotation.yaw = agent.vehicle.transform.rotation.yaw
                     vehicle.id = agent.id
                     vehicle.forward_speed = agent.vehicle.forward_speed
-                    vehicles.append(vehicle) # agent.vehicle
+                    vehicles.append(vehicle) # without wrapper pass agent.vehicle
                 elif agent.HasField('pedestrian'):
                     attr = 'pedestrian'
                 else:
@@ -892,7 +899,7 @@ def exec_waypoint_nav_demo(args):
 
                 # Build agent points
                 distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
-                if distance < 5:
+                if distance < OBSTACLE_DETECTION_RADIUS:
                     # if distance < 5:
                     #     pass
                         # print(f"Distanza da ostacolo pericolosa: {distance}")
@@ -1107,66 +1114,66 @@ def exec_waypoint_nav_demo(args):
                 pass
             elif local_waypoints == None:
                 pass
-            # else:
-            #     # Update live plotter with new feedback
-            #     trajectory_fig.roll("trajectory", current_x, current_y)
-            #     trajectory_fig.roll("car", current_x, current_y)
+            elif PRINT:
+                # Update live plotter with new feedback
+                trajectory_fig.roll("trajectory", current_x, current_y)
+                trajectory_fig.roll("car", current_x, current_y)
 
-            #     # Load parked car points
-            #     if len(obstacles) > 0:
-            #         x = obstacles[:,:,0]
-            #         y = obstacles[:,:,1]
-            #         x = np.reshape(x, x.shape[0] * x.shape[1])
-            #         y = np.reshape(y, y.shape[0] * y.shape[1])
+                # Load parked car points
+                if len(obstacles) > 0:
+                    x = obstacles[:,:,0]
+                    y = obstacles[:,:,1]
+                    x = np.reshape(x, x.shape[0] * x.shape[1])
+                    y = np.reshape(y, y.shape[0] * y.shape[1])
 
-            #         trajectory_fig.roll("obstacles_points", x, y)
+                    trajectory_fig.roll("obstacles_points", x, y)
 
-            #     forward_speed_fig.roll("forward_speed",
-            #                            current_timestamp, 
-            #                            current_speed)
-            #     forward_speed_fig.roll("reference_signal", 
-            #                            current_timestamp, 
-            #                            controller._desired_speed)
-            #     throttle_fig.roll("throttle", current_timestamp, cmd_throttle)
-            #     brake_fig.roll("brake", current_timestamp, cmd_brake)
-            #     steer_fig.roll("steer", current_timestamp, cmd_steer)
+                forward_speed_fig.roll("forward_speed",
+                                       current_timestamp, 
+                                       current_speed)
+                forward_speed_fig.roll("reference_signal", 
+                                       current_timestamp, 
+                                       controller._desired_speed)
+                throttle_fig.roll("throttle", current_timestamp, cmd_throttle)
+                brake_fig.roll("brake", current_timestamp, cmd_brake)
+                steer_fig.roll("steer", current_timestamp, cmd_steer)
 
-            #     # Local path plotter update
-            #     if frame % LP_FREQUENCY_DIVISOR == 0:
-            #         path_counter = 0
-            #         for i in range(NUM_PATHS):
-            #             # If a path was invalid in the set, there is no path to plot.
-            #             if path_validity[i]:
-            #                 # Colour paths according to collision checking.
-            #                 if not collision_check_array[path_counter]:
-            #                     colour = 'r'
-            #                 elif i == best_index:
-            #                     colour = 'k'
-            #                 else:
-            #                     colour = 'b'
-            #                 trajectory_fig.update("local_path " + str(i), paths[path_counter][0], paths[path_counter][1], colour)
-            #                 path_counter += 1
-            #             else:
-            #                 trajectory_fig.update("local_path " + str(i), [ego_state[0]], [ego_state[1]], 'r')
-            #     # When plotting lookahead path, only plot a number of points
-            #     # (INTERP_MAX_POINTS_PLOT amount of points). This is meant
-            #     # to decrease load when live plotting
-            #     wp_interp_np = np.array(wp_interp)
-            #     path_indices = np.floor(np.linspace(0, 
-            #                                         wp_interp_np.shape[0]-1,
-            #                                         INTERP_MAX_POINTS_PLOT))
-            #     trajectory_fig.update("selected_path", 
-            #             wp_interp_np[path_indices.astype(int), 0],
-            #             wp_interp_np[path_indices.astype(int), 1],
-            #             new_colour=[1, 0.5, 0.0])
+                # Local path plotter update
+                if frame % LP_FREQUENCY_DIVISOR == 0:
+                    path_counter = 0
+                    for i in range(NUM_PATHS):
+                        # If a path was invalid in the set, there is no path to plot.
+                        if path_validity[i]:
+                            # Colour paths according to collision checking.
+                            if not collision_check_array[path_counter]:
+                                colour = 'r'
+                            elif i == best_index:
+                                colour = 'k'
+                            else:
+                                colour = 'b'
+                            trajectory_fig.update("local_path " + str(i), paths[path_counter][0], paths[path_counter][1], colour)
+                            path_counter += 1
+                        else:
+                            trajectory_fig.update("local_path " + str(i), [ego_state[0]], [ego_state[1]], 'r')
+                # When plotting lookahead path, only plot a number of points
+                # (INTERP_MAX_POINTS_PLOT amount of points). This is meant
+                # to decrease load when live plotting
+                wp_interp_np = np.array(wp_interp)
+                path_indices = np.floor(np.linspace(0, 
+                                                    wp_interp_np.shape[0]-1,
+                                                    INTERP_MAX_POINTS_PLOT))
+                trajectory_fig.update("selected_path", 
+                        wp_interp_np[path_indices.astype(int), 0],
+                        wp_interp_np[path_indices.astype(int), 1],
+                        new_colour=[1, 0.5, 0.0])
 
-            #     # Refresh the live plot based on the refresh rate
-            #     # set by the options
-            #     if enable_live_plot and \
-            #        live_plot_timer.has_exceeded_lap_period():
-            #         lp_traj.refresh()
-            #         lp_1d.refresh()
-            #         live_plot_timer.lap()
+                # Refresh the live plot based on the refresh rate
+                # set by the options
+                if enable_live_plot and \
+                   live_plot_timer.has_exceeded_lap_period():
+                    lp_traj.refresh()
+                    lp_1d.refresh()
+                    live_plot_timer.lap()
 
             # Output controller command to CARLA server
 
