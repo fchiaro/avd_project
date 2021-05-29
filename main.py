@@ -43,8 +43,8 @@ from traffic_light_detection import TrafficLightDetector
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 7  # 148          #  spawn index for player
-DESTINATION_INDEX = 15  # Setting a Destination HERE
+PLAYER_START_INDEX = 2  # 148          #  spawn index for player
+DESTINATION_INDEX = 23  # Setting a Destination HERE
 NUM_PEDESTRIANS = 30  # total number of pedestrians to spawn
 NUM_VEHICLES = 30  # total number of vehicles to spawn
 SEED_PEDESTRIANS = 0  # seed for pedestrian spawn randomizer
@@ -863,7 +863,7 @@ def exec_waypoint_nav_demo(args):
                                                                agent_yaw=orientation.yaw,
                                                                agent_speed=agent_type.forward_speed,
                                                                dt=0.3,
-                                                               time_to_horizon=2)
+                                                               time_to_horizon=3.5)
                         """
                         obstacles += predict_collision_points(agent_x0=point[0],
                                                               agent_y0=point[1],
