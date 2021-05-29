@@ -3,24 +3,37 @@ import math
 import scipy.spatial
 
 CIRCLE_OFFSETS = [-1.0, 1.0, 3.0]  # m
-CIRCLE_RADII = [1.5, 1.5, 1.5]  # m
+CIRCLE_RADII = [3, 3, 3]  # m
 
 
-def predict_collision_points(agent_x0, agent_y0, agent_yaw, agent_speed, vehicle_x0, vehicle_y0, vehicle_yaw, vehicle_speed, dt, time_to_horizon,):
+def project_agent_into_future(agent_x0, agent_y0, agent_yaw, agent_speed, dt, time_to_horizon):
+
+    t = 0
+    agent_yaw_rad = math.radians(agent_yaw)
+    colliding_points = []
+    while t <= time_to_horizon:
+        agent_p = next_position(agent_x0, agent_y0, t, agent_speed, agent_yaw_rad)
+        colliding_points.append([agent_p['x'], agent_p['y']])
+        t = t + dt
+
+    return colliding_points
+
+def predict_collision_points(agent_x0, agent_y0, agent_yaw, agent_speed, vehicle_x0, vehicle_y0, vehicle_yaw,
+                             vehicle_speed, dt, time_to_horizon,):
     t = 0
 
-    agent_yaw = math.radians(agent_yaw)
-    vehicle_yaw = math.radians(vehicle_yaw)
+    agent_yaw_rad = math.radians(agent_yaw)
+    vehicle_yaw_rad = math.radians(vehicle_yaw)
 
     colliding_points = []
 
-    while t < time_to_horizon:
+    while t <= time_to_horizon:
         # Stima posizione di agente e veicolo all'istante t
 
-        agent_p = next_position(agent_x0, agent_y0, t, agent_speed, agent_yaw)
-        vehicle_p = next_position(vehicle_x0, vehicle_y0, t, vehicle_speed, vehicle_yaw)
+        agent_p = next_position(agent_x0, agent_y0, t, agent_speed, agent_yaw_rad)
+        vehicle_p = next_position(vehicle_x0, vehicle_y0, t, vehicle_speed, vehicle_yaw_rad)
 
-        if points_collide(vehicle_p, vehicle_yaw, agent_p):
+        if points_collide(vehicle_p, vehicle_yaw_rad, agent_p):
             colliding_points.append([agent_p['x'], agent_p['y']])
 
         t = t + dt
@@ -56,7 +69,7 @@ def points_collide(vehicle_p, vehicle_yaw, agent_p):
 
 # TEST
 test_agent_x = 1
-test_agent_y = 1.9
+test_agent_y = 2
 test_agent_yaw = 0
 test_agent_speed = 2
 
@@ -73,5 +86,5 @@ print(predict_collision_points(agent_x0=test_agent_x,
                                vehicle_y0=test_vehicle_y,
                                vehicle_yaw=test_vehicle_yaw,
                                vehicle_speed=test_vehicle_speed,
-                               dt=0.1,
+                               dt=1,
                                time_to_horizon=5))

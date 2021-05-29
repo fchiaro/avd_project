@@ -43,10 +43,10 @@ from traffic_light_detection import TrafficLightDetector
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 10  # 148          #  spawn index for player
+PLAYER_START_INDEX = 7  # 148          #  spawn index for player
 DESTINATION_INDEX = 15  # Setting a Destination HERE
-NUM_PEDESTRIANS = 200  # total number of pedestrians to spawn
-NUM_VEHICLES = 3  # total number of vehicles to spawn
+NUM_PEDESTRIANS = 30  # total number of pedestrians to spawn
+NUM_VEHICLES = 30  # total number of vehicles to spawn
 SEED_PEDESTRIANS = 0  # seed for pedestrian spawn randomizer
 SEED_VEHICLES = 0  # seed for vehicle spawn randomizer
 ###############################################################################àà
@@ -158,7 +158,7 @@ def obstacle_to_world(location, dimensions, orientation):
     y = location.y
     z = location.z
 
-    yaw = orientation.yaw * pi / 180 # convert to radians
+    yaw = orientation.yaw * pi / 180  # convert to radians
 
     xrad = dimensions.x
     yrad = dimensions.y
@@ -579,7 +579,7 @@ def exec_waypoint_nav_demo(args):
             dy = current_waypoint[1] - previuos_waypoint[1]
 
             is_turn = ((prev_x and abs(dy) > 0.1) or (prev_y and abs(dx) > 0.1)) and not (
-                        abs(dx) > 0.1 and abs(dy) > 0.1)
+                    abs(dx) > 0.1 and abs(dy) > 0.1)
 
             prev_x = abs(dx) > 0.1
             prev_y = abs(dy) > 0.1
@@ -848,11 +848,23 @@ def exec_waypoint_nav_demo(args):
 
                 # Build agent points
                 distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
-                if distance < 20:
-                    print(distance)
+                if distance < 30:
+                    if distance < 5:
+                        pass
+                        # print(f"Distanza da ostacolo pericolosa: {distance}")
+                        # print(f"Coordinate veicolo: {current_x},{current_y}")
+                        # print(f"Coordinate ostacolo: {location.x}, {location.y}")
+
                     agent_points = obstacle_to_world(location, dimensions, orientation)
 
                     for point in agent_points:
+                        obstacles += project_agent_into_future(agent_x0=point[0],
+                                                               agent_y0=point[1],
+                                                               agent_yaw=orientation.yaw,
+                                                               agent_speed=agent_type.forward_speed,
+                                                               dt=0.3,
+                                                               time_to_horizon=2)
+                        """
                         obstacles += predict_collision_points(agent_x0=point[0],
                                                               agent_y0=point[1],
                                                               agent_yaw=orientation.yaw,
@@ -862,9 +874,10 @@ def exec_waypoint_nav_demo(args):
                                                               vehicle_yaw=current_yaw,
                                                               vehicle_speed=current_speed,
                                                               dt=0.3,
-                                                              time_to_horizon=10)
+                                                              time_to_horizon=20)
+                        """
 
-                # obstacles += obstacle_to_world(location, dimensions, orientation)
+                    # obstacles += obstacle_to_world(location, dimensions, orientation)
 
                 # agent.vehicle.forward_speed
                 # agent.vehicle.transform
@@ -934,7 +947,8 @@ def exec_waypoint_nav_demo(args):
                 bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
 
                 # Perform a state transition in the behavioural planner.
-                bp.transition_state(waypoints, ego_state, current_speed, traffic_light_state, traffic_light_distance)
+                bp.transition_state(waypoints, ego_state, current_speed, traffic_light_state, traffic_light_distance,
+                                    no_path_found)
 
                 # IL CHECK PER IL LEAD VEHICLE LORO LO FANNO QUI
 
@@ -948,8 +962,7 @@ def exec_waypoint_nav_demo(args):
                 paths = local_planner.transform_paths(paths, ego_state)
 
                 # Perform collision checking.
-                print(obstacles)
-                if len(obstacles)>0:
+                if len(obstacles) > 0:
                     obstacles = [obstacles]
 
                 collision_check_array = lp._collision_checker.collision_check(paths, obstacles)
@@ -965,12 +978,14 @@ def exec_waypoint_nav_demo(args):
                 else:
                     best_path = paths[best_index]
                     lp._prev_best_path = best_path
+                    no_path_found = 0
 
                 if best_path is not None:
                     # Compute the velocity profile for the path, and compute the waypoints.
                     desired_speed = bp._goal_state[2]
                     # decelerate_to_stop = bp._state == behavioural_planner.DECELERATE_TO_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT
                     decelerate_to_stop = False
+
                     local_waypoints = lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state,
                                                                                     current_speed, decelerate_to_stop,
                                                                                     None, bp._follow_lead_vehicle)
@@ -1096,6 +1111,7 @@ def exec_waypoint_nav_demo(args):
             #         live_plot_timer.lap()
 
             # Output controller command to CARLA server
+
             send_control_command(client,
                                  throttle=cmd_throttle,
                                  steer=cmd_steer,
