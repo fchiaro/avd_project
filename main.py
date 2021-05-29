@@ -892,7 +892,7 @@ def exec_waypoint_nav_demo(args):
 
                 # Build agent points
                 distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
-                if distance < 30:
+                if distance < 20:
                     if distance < 5:
                         pass
                         # print(f"Distanza da ostacolo pericolosa: {distance}")
@@ -1025,6 +1025,7 @@ def exec_waypoint_nav_demo(args):
                 if best_index == None:
                     best_path = lp._prev_best_path
                     no_path_found += 1
+                    print(f"Non trovo path. Questi sono gli ostacoli sul mio percorso: {obstacles}")
                     print(str(no_path_found) + " NO PATH FOUND!!!!!!")
                 else:
                     best_path = paths[best_index]
