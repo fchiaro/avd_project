@@ -380,30 +380,35 @@ class BehaviouralPlanner:
         # Check lead car position delta vector relative to heading, as well as
         # distance, to determine if car should be followed.
         # Check to see if lead vehicle is within range, and is ahead of us.
-        if not self._follow_lead_vehicle:
+        
+        # if not self._follow_lead_vehicle:
             
-            print("Looking for a new leading vehicle...")
+        print("Looking for a new leading vehicle...")
 
-            vehicles = self._filter_leading_vehicles(vehicles, ego_state, (1 / math.sqrt(2)))
+        vehicles = self._filter_leading_vehicles(vehicles, ego_state, (1 / math.sqrt(2)))
 
-            # check if there actually are vehicles proceding in our same direction
-            if len(vehicles) == 0:
-                return None
+        # check if there actually are vehicles proceding in our same direction
+        if len(vehicles) == 0:
+            self._follow_lead_vehicle = False
+            return None
 
-            # get closest vehicle that is in front of ego vehicle
-            lead_vehicle, lead_vehicle_distance = self._get_closest_vehicle(vehicles, ego_state)
+        # get closest vehicle that is in front of ego vehicle
+        lead_vehicle, lead_vehicle_distance = self._get_closest_vehicle(vehicles, ego_state)
 
-            if lead_vehicle is None or lead_vehicle_distance is None or lead_vehicle_distance > self._follow_lead_vehicle_lookahead:
-                return None
+        if lead_vehicle is None or lead_vehicle_distance is None or lead_vehicle_distance > self._follow_lead_vehicle_lookahead:
+            self._follow_lead_vehicle = False
+            return None
 
-            # self._follow_lead_vehicle = True
+        # self._follow_lead_vehicle = True
 
-            self._lead_vehicle = lead_vehicle
-            
-            # print(f"Found new leading vehicle! - {lead_vehicle.id}")
-            print(f"Following {lead_vehicle.id}")
+        self._lead_vehicle = lead_vehicle
 
-            return lead_vehicle
+        self._follow_lead_vehicle = True
+        
+        # print(f"Found new leading vehicle! - {lead_vehicle.id}")
+        print(f"Following {lead_vehicle.id}")
+
+        return lead_vehicle
 
         # else:
         #     print(f"Following the same car - {self._lead_vehicle.id}")

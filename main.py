@@ -892,9 +892,9 @@ def exec_waypoint_nav_demo(args):
 
                 # Build agent points
                 distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
-                if distance < 30:
-                    if distance < 5:
-                        pass
+                if distance < 5:
+                    # if distance < 5:
+                    #     pass
                         # print(f"Distanza da ostacolo pericolosa: {distance}")
                         # print(f"Coordinate veicolo: {current_x},{current_y}")
                         # print(f"Coordinate ostacolo: {location.x}, {location.y}")
