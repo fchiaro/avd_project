@@ -3,6 +3,7 @@ from sys import float_repr_style, stderr
 import numpy as np
 import math
 from avd_utils import get_lead_vehicle
+import copy
 
 # State machine states
 FOLLOW_LANE = 0
@@ -10,10 +11,14 @@ DECELERATE_TO_STOP = 1
 STAY_STOPPED = 2
 DETECTED_RED_LIGHT = 3
 DECELERATE_AND_WAIT = 4
+EMERGENCY_STOP = 5
 # Stop speed threshold
 STOP_THRESHOLD = 0.02
 # Number of cycles before moving from stop sign.
 STOP_COUNTS = 10
+
+
+test_counter = 0
 
 class BehaviouralPlanner:
     def __init__(self, lookahead, lead_vehicle_lookahead):
@@ -37,6 +42,7 @@ class BehaviouralPlanner:
         self._n_subsequent_miss = 0
         self._n_subsequent_miss_threshold = 10 # frames
         self._lead_vehicle = None
+        self._test_counter = 0
     
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
@@ -52,15 +58,19 @@ class BehaviouralPlanner:
         # Next, find the goal index that lies within the lookahead distance
         # along the waypoints.
         goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
-        while waypoints[goal_index][2] <= 0.1: goal_index += 1
+
+        # while waypoints[goal_index][2] <= 0.1: goal_index += 1
 
         self._goal_index = goal_index
-        self._goal_state = waypoints[goal_index]
+        self._goal_state = copy.copy(waypoints[goal_index])
+
+        # print(f"Goal state: {self._goal_state}")
 
         self._lookahead = lookahead_backup
 
     # Handles state transitions and computes the goal state.
-    def transition_state(self, waypoints, ego_state, closed_loop_speed, traffic_light_state, traffic_light_distance):
+    def transition_state(self, waypoints, ego_state, closed_loop_speed, traffic_light_state, traffic_light_distance,
+                         no_path_found=False):
         """Handles state transitions and computes the goal state.  
         
         args:
@@ -120,7 +130,22 @@ class BehaviouralPlanner:
             if traffic_light_state is not None and traffic_light_distance is not None:
                 if traffic_light_state == self._TRAFFIC_LIGHT_RED_STATE:
                     self._state = DETECTED_RED_LIGHT
-        
+            if no_path_found:
+                self._state = EMERGENCY_STOP
+
+            """
+            if 10 <= self._test_counter <= 30:
+                print("FRENA")
+                self._goal_state[2] = 0
+            else:
+                print(self._test_counter)
+            self._test_counter += 1
+            """
+        elif self._state == EMERGENCY_STOP:
+            self._update_goal_state(waypoints, ego_state)
+            self._goal_state[2] = 0
+            if not no_path_found:
+                self._state = FOLLOW_LANE
         elif self._state == DETECTED_RED_LIGHT:
             # print(f"DETECTED RED LIGHT - {self._red_light_count}") # DEBUG
             self._update_goal_state(waypoints, ego_state)
@@ -151,6 +176,9 @@ class BehaviouralPlanner:
 
                 self._red_light_count = 0
                 self._state = DECELERATE_AND_WAIT
+            if no_path_found:
+                self._state = EMERGENCY_STOP
+                self._red_light_count = 0
         
         elif self._state == DECELERATE_AND_WAIT:
             # print("DECELERATE AND WAIT") # DEBUG
@@ -175,6 +203,12 @@ class BehaviouralPlanner:
                 # reset the count to mitigate the effect of spurious detections
                 self._green_light_count = 0
                 self._stopped = True
+
+            if no_path_found:
+                self._state = EMERGENCY_STOP
+                self._green_light_count = 0
+                self._n_subsequent_miss = 0
+                self._stopped = False
 
         # In this state, check if we have reached a complete stop. Use the
         # closed loop speed to do so, to ensure we are actually at a complete
