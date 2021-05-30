@@ -32,14 +32,13 @@ from carla.controller import utils
 from carla.sensor import Camera
 from carla.image_converter import labels_to_array, depth_to_array, to_bgra_array
 from carla.planner.city_track import CityTrack
-from utils_collision_checker import *
 
 sys.path.append(os.path.abspath('./traffic_light_detection_module/'))
 from yolo import YOLO
 from postprocessing import draw_boxes
 
 from traffic_light_detection import TrafficLightDetector
-
+from utils_collision_checker import *
 
 ######### WRAPPERS TO PRINT (LEADING) VEHICLE ID ##############
 # TODO: remove these wrappers and their usage
@@ -74,8 +73,8 @@ vehicle.id = agent.id
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 2 # 54 # 10 # 148          #  spawn index for player
-DESTINATION_INDEX = 23        # Setting a Destination HERE
+PLAYER_START_INDEX = 7 # 54 # 10 # 148          #  spawn index for player
+DESTINATION_INDEX = 15        # Setting a Destination HERE
 NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
 NUM_VEHICLES           = 30    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
@@ -91,9 +90,9 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # consistently
 
 OBSTACLE_DETECTION_RADIUS = 13 # m
-PRINT = False
+PLOT = False
 ENABLE_DETECTOR = True
-REAR_CAMERA = False
+REAR_CAMERA = True
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -254,7 +253,7 @@ def make_carla_settings(args):
 
     # Declare here your sensors
 
-    ROTATION = 5
+    ROTATION = 15
 
     # RGB CAMERA
     camera0 = Camera("CameraRGB")
@@ -278,7 +277,7 @@ def make_carla_settings(args):
     # REAR RGB CAMERA
     camera2 = Camera("CameraRGB2")
     camera2.set_image_size(camera_width, camera_height)
-    camera2.set(FOV=camera_fov)
+    camera2.set(FOV=120)
     camera2.set_position(-cam_x_pos, 0, cam_height)
     camera2.set_rotation(0,180,0)
     
@@ -903,6 +902,10 @@ def exec_waypoint_nav_demo(args):
                 dimensions = agent_type.bounding_box.extent
                 orientation = agent_type.transform.rotation
 
+                # note that current_yaw is already expressed in radians
+                if not is_obstacle_frontal((current_x, current_y), (location.x, location.y), current_yaw):
+                    continue
+
                 # Build agent points
                 distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
                 if distance < OBSTACLE_DETECTION_RADIUS:
@@ -993,7 +996,7 @@ def exec_waypoint_nav_demo(args):
                         print(f"Traffic light real distance: {closest_traffic_light_distance(measurement_data)}")
                         # #### END DEBUG ####
                 if REAR_CAMERA:
-                    camera_data = sensor_data.get("CameraRGB", None) # CameraRGB2
+                    camera_data = sensor_data.get("CameraRGB2", None) # CameraRGB2
                     if camera_data is not None:
                         camera_data = to_bgra_array(camera_data)
                         cv2.imshow('Rear camera', camera_data)
@@ -1140,13 +1143,16 @@ def exec_waypoint_nav_demo(args):
                 pass
             elif local_waypoints == None:
                 pass
-            elif PRINT:
+            elif PLOT:
                 # Update live plotter with new feedback
                 trajectory_fig.roll("trajectory", current_x, current_y)
                 trajectory_fig.roll("car", current_x, current_y)
 
                 # Load parked car points
-                if len(obstacles) > 0:
+                if len(obstacles) > 0:                    
+                    if frame % LP_FREQUENCY_DIVISOR != 0:
+                        obstacles = [obstacles]
+                    obstacles = np.array(obstacles)
                     x = obstacles[:,:,0]
                     y = obstacles[:,:,1]
                     x = np.reshape(x, x.shape[0] * x.shape[1])
