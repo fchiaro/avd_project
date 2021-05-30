@@ -74,10 +74,10 @@ vehicle.id = agent.id
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 7 # 54 # 10 # 148          #  spawn index for player
+PLAYER_START_INDEX = 10 # 54 # 10 # 148          #  spawn index for player
 DESTINATION_INDEX = 15        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
-NUM_VEHICLES           = 30    # total number of vehicles to spawn
+NUM_PEDESTRIANS        = 200      # total number of pedestrians to spawn
+NUM_VEHICLES           = 3    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
 SEED_VEHICLES          = 0     # seed for vehicle spawn randomizer
 ###############################################################################àà
@@ -90,9 +90,9 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # used to make sure the server loads
                                 # consistently
 
-OBSTACLE_DETECTION_RADIUS = 5 # m
+OBSTACLE_DETECTION_RADIUS = 13 # m
 PRINT = False
-ENABLE_DETECTOR = True
+ENABLE_DETECTOR = False
 REAR_CAMERA = False
 
 WEATHERID = {
@@ -156,7 +156,7 @@ CONTROLLER_OUTPUT_FOLDER = os.path.dirname(os.path.realpath(__file__)) + \
 # Camera parameters
 camera_parameters = {}
 camera_parameters['x'] = 1.8
-camera_parameters['y'] = 0
+camera_parameters['y'] = 0.6
 camera_parameters['z'] = 1.3
 camera_parameters['width'] = 416
 camera_parameters['height'] = 416
@@ -254,7 +254,7 @@ def make_carla_settings(args):
 
     # Declare here your sensors
 
-    ROTATION = 20
+    ROTATION = 5
 
     # RGB CAMERA
     camera0 = Camera("CameraRGB")
@@ -265,15 +265,6 @@ def make_carla_settings(args):
 
     settings.add_sensor(camera0)
 
-    # REAR RGB CAMERA
-    camera2 = Camera("CameraRGB2")
-    camera2.set_image_size(camera_width, camera_height)
-    camera2.set(FOV=camera_fov)
-    camera2.set_position(-cam_x_pos, cam_y_pos, cam_height)
-    camera2.set_rotation(0,180,0)
-    
-    settings.add_sensor(camera2)
-
     # DEPTH CAMERA
     DEPTH_CAMERA_Y_OFFSET = 0.10
     camera1 = Camera('DepthCamera', PostProcessing='Depth')
@@ -283,6 +274,15 @@ def make_carla_settings(args):
     camera1.set_rotation(0,ROTATION,0)
 
     settings.add_sensor(camera1)
+
+    # REAR RGB CAMERA
+    camera2 = Camera("CameraRGB2")
+    camera2.set_image_size(camera_width, camera_height)
+    camera2.set(FOV=camera_fov)
+    camera2.set_position(-cam_x_pos, 0, cam_height)
+    camera2.set_rotation(0,180,0)
+    
+    settings.add_sensor(camera2)
 
     return settings
 
@@ -546,6 +546,7 @@ def exec_waypoint_nav_demo(args):
         # send a command back to the CARLA server because synchronous mode
         # is enabled.
         measurement_data, sensor_data = client.read_data()
+        # print(f"Car's dimensions: {measurement_data.player_measurements.bounding_box.extent}")
         sim_start_stamp = measurement_data.game_timestamp / 1000.0
         # Send a control command to proceed to next iteration.
         # This mainly applies for simulations that are in synchronous mode.
@@ -1038,7 +1039,7 @@ def exec_waypoint_nav_demo(args):
                 if best_index == None:
                     best_path = lp._prev_best_path
                     no_path_found += 1
-                    print(f"Non trovo path. Questi sono gli ostacoli sul mio percorso: {obstacles}")
+                    # print(f"Non trovo path. Questi sono gli ostacoli sul mio percorso: {obstacles}")
                     print(str(no_path_found) + " NO PATH FOUND!!!!!!")
                 else:
                     best_path = paths[best_index]
@@ -1114,6 +1115,11 @@ def exec_waypoint_nav_demo(args):
                 cmd_throttle = 0.0
                 cmd_steer = 0.0
                 cmd_brake = 0.0
+            
+            # No matter if there are feasible paths or not, in certain states we need to brake
+            # if bp._state == behavioural_planner.EMERGENCY_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT:
+            #         cmd_brake = 1.0
+            #         cmd_throttle = 0.0
 
             # Skip the first frame or if there exists no local paths
             if skip_first_frame and frame == 0:
