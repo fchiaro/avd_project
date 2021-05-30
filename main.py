@@ -76,10 +76,10 @@ vehicle.id = agent.id
 ###############################################################################
 PLAYER_START_INDEX = 10 # 54 # 10 # 148          #  spawn index for player
 DESTINATION_INDEX = 15        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 200      # total number of pedestrians to spawn
-NUM_VEHICLES           = 3    # total number of vehicles to spawn
+NUM_PEDESTRIANS        = 1      # total number of pedestrians to spawn
+NUM_VEHICLES           = 50    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
-SEED_VEHICLES          = 0     # seed for vehicle spawn randomizer
+SEED_VEHICLES          = 3    # seed for vehicle spawn randomizer
 ###############################################################################àà
 
 ITER_FOR_SIM_TIMESTEP  = 10     # no. iterations to compute approx sim timestep
@@ -1037,10 +1037,24 @@ def exec_waypoint_nav_demo(args):
                 # If no path was feasible, continue to follow the previous best path.
 
                 if best_index == None:
+
+                    best_path = lp._prev_best_path
+                    if len(paths) != 0 and not (True in collision_check_array):
+                        print(f"Non ci sono path liberi da ostacoli. Inchiodo!")
+                        no_path_found += 1
+                    else:
+                        print(f"Non sono stati generabili dei path. Uso il precedente.")
+                        no_path_found = 0
+
+                    """
+                    print(f"trovati paths in numero: {len(paths)}")
                     best_path = lp._prev_best_path
                     no_path_found += 1
                     # print(f"Non trovo path. Questi sono gli ostacoli sul mio percorso: {obstacles}")
                     print(str(no_path_found) + " NO PATH FOUND!!!!!!")
+                    if len(paths) == 0:
+                        no_path_found = 0
+                    """
                 else:
                     best_path = paths[best_index]
                     lp._prev_best_path = best_path
@@ -1117,9 +1131,9 @@ def exec_waypoint_nav_demo(args):
                 cmd_brake = 0.0
             
             # No matter if there are feasible paths or not, in certain states we need to brake
-            # if bp._state == behavioural_planner.EMERGENCY_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT:
-            #         cmd_brake = 1.0
-            #         cmd_throttle = 0.0
+            if bp._state == behavioural_planner.EMERGENCY_STOP or bp._state == behavioural_planner.DECELERATE_AND_WAIT:
+                cmd_brake = 1.0
+                cmd_throttle = 0.0
 
             # Skip the first frame or if there exists no local paths
             if skip_first_frame and frame == 0:
