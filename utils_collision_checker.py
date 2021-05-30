@@ -6,6 +6,26 @@ CIRCLE_OFFSETS = [-1.0, 1.0, 3.0]  # m
 CIRCLE_RADII = [3, 3, 3]  # m
 
 
+def is_obstacle_frontal(ego_pos, obstacle_pos, ego_yaw, heading_cosine_threshold = (1/(math.sqrt(2)))):
+    """[summary]
+
+    Args:
+        ego_pos ([type]): ego (x,y) coordinates
+        obstacle_pos ([type]): obstacle (x,y) coordinates
+        ego_yaw ([type]): expressed in radians
+    """
+    
+    obstacle_delta = [obstacle_pos[0] - ego_pos[0], obstacle_pos[1] - ego_pos[1]]
+    obstacle_distance = np.linalg.norm(obstacle_delta)
+    obstacle_delta = np.divide(obstacle_delta, obstacle_distance)
+    
+    ego_heading_vector = [math.cos(ego_yaw), math.sin(ego_yaw)]
+    
+    is_in_front = np.dot(obstacle_delta, ego_heading_vector) > heading_cosine_threshold
+
+    return is_in_front
+
+
 def project_agent_into_future(agent_x0, agent_y0, agent_yaw, agent_speed, dt, time_to_horizon):
 
     t = 0
