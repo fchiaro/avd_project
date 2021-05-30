@@ -254,7 +254,7 @@ def make_carla_settings(args):
 
     # Declare here your sensors
 
-    ROTATION = 5
+    ROTATION = 15
 
     # RGB CAMERA
     camera0 = Camera("CameraRGB")
