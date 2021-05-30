@@ -74,12 +74,12 @@ vehicle.id = agent.id
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 10 # 54 # 10 # 148          #  spawn index for player
-DESTINATION_INDEX = 15        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 1      # total number of pedestrians to spawn
-NUM_VEHICLES           = 50    # total number of vehicles to spawn
+PLAYER_START_INDEX = 2 # 54 # 10 # 148          #  spawn index for player
+DESTINATION_INDEX = 23        # Setting a Destination HERE
+NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
+NUM_VEHICLES           = 30    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
-SEED_VEHICLES          = 3    # seed for vehicle spawn randomizer
+SEED_VEHICLES          = 0    # seed for vehicle spawn randomizer
 ###############################################################################àà
 
 ITER_FOR_SIM_TIMESTEP  = 10     # no. iterations to compute approx sim timestep
@@ -92,7 +92,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
 
 OBSTACLE_DETECTION_RADIUS = 13 # m
 PRINT = False
-ENABLE_DETECTOR = False
+ENABLE_DETECTOR = True
 REAR_CAMERA = False
 
 WEATHERID = {
