@@ -37,7 +37,7 @@ class BehaviouralPlanner:
         self._red_light_count_th = 5 # frames
         self._green_light_count = 0
         self._green_light_count_th = 5 # frames
-        self._traffic_light_distance_threshold = 9.0 # meters
+        self._traffic_light_distance_threshold = 15.0 # meters
         self._stopped = False
         self._n_subsequent_miss = 0
         self._n_subsequent_miss_threshold = 10 # frames

@@ -74,12 +74,12 @@ vehicle.id = agent.id
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 10 # 54 # 10 # 148          #  spawn index for player
+PLAYER_START_INDEX = 7 # 54 # 10 # 148          #  spawn index for player
 DESTINATION_INDEX = 15        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 1      # total number of pedestrians to spawn
-NUM_VEHICLES           = 50    # total number of vehicles to spawn
+NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
+NUM_VEHICLES           = 30    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
-SEED_VEHICLES          = 3     # seed for vehicle spawn randomizer
+SEED_VEHICLES          = 0     # seed for vehicle spawn randomizer
 ###############################################################################àà
 
 ITER_FOR_SIM_TIMESTEP  = 10     # no. iterations to compute approx sim timestep
@@ -92,7 +92,8 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
 
 OBSTACLE_DETECTION_RADIUS = 5 # m
 PRINT = False
-ENABLE_DETECTOR = False
+ENABLE_DETECTOR = True
+REAR_CAMERA = False
 
 WEATHERID = {
     "DEFAULT": 0,
@@ -159,7 +160,7 @@ camera_parameters['y'] = 0
 camera_parameters['z'] = 1.3
 camera_parameters['width'] = 416
 camera_parameters['height'] = 416
-camera_parameters['fov'] = 100
+camera_parameters['fov'] = 50
 
 
 def rotate_x(angle):
@@ -253,11 +254,14 @@ def make_carla_settings(args):
 
     # Declare here your sensors
 
+    ROTATION = 20
+
     # RGB CAMERA
     camera0 = Camera("CameraRGB")
     camera0.set_image_size(camera_width, camera_height)
     camera0.set(FOV=camera_fov)
     camera0.set_position(cam_x_pos, cam_y_pos, cam_height)
+    camera0.set_rotation(0,ROTATION,0)
 
     settings.add_sensor(camera0)
 
@@ -276,6 +280,7 @@ def make_carla_settings(args):
     camera1.set_image_size(camera_width, camera_height)
     camera1.set(FOV=camera_fov)
     camera1.set_position(cam_x_pos, cam_y_pos, cam_height)
+    camera1.set_rotation(0,ROTATION,0)
 
     settings.add_sensor(camera1)
 
@@ -983,14 +988,15 @@ def exec_waypoint_nav_demo(args):
                         print(
                             f"Semaphore state: {traffic_light_state} - semaphore distance {traffic_light_distance}")  # DEBUG
                         # #### DEBUG ####
-                        # from avd_utils import closest_traffic_light_distance
-                        # print(f"Traffic light real distance: {closest_traffic_light_distance(measurement_data)}")
+                        from avd_utils import closest_traffic_light_distance
+                        print(f"Traffic light real distance: {closest_traffic_light_distance(measurement_data)}")
                         # #### END DEBUG ####
-                # camera_data = sensor_data.get("CameraRGB", None) # CameraRGB2
-                # if camera_data is not None:
-                #     camera_data = to_bgra_array(camera_data)
-                #     cv2.imshow('Rear camera', camera_data)
-                #     cv2.waitKey(1)
+                if REAR_CAMERA:
+                    camera_data = sensor_data.get("CameraRGB", None) # CameraRGB2
+                    if camera_data is not None:
+                        camera_data = to_bgra_array(camera_data)
+                        cv2.imshow('Rear camera', camera_data)
+                        cv2.waitKey(1)
 
                 # Compute open loop speed estimate.
                 open_loop_speed = lp._velocity_planner.get_open_loop_speed(current_timestamp - prev_timestamp)
