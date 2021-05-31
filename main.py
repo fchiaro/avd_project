@@ -154,9 +154,9 @@ CONTROLLER_OUTPUT_FOLDER = os.path.dirname(os.path.realpath(__file__)) + \
 
 # Camera parameters
 camera_parameters = {}
-camera_parameters['x'] = 1.8
+camera_parameters['x'] = -1.8 # 1.8
 camera_parameters['y'] = 0.6
-camera_parameters['z'] = 1.3
+camera_parameters['z'] = 1.5 # 1.3
 camera_parameters['width'] = 416
 camera_parameters['height'] = 416
 camera_parameters['fov'] = 50
