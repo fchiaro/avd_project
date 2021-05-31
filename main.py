@@ -73,10 +73,10 @@ vehicle.id = agent.id
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 2 # 54 # 10 # 148          #  spawn index for player
-DESTINATION_INDEX = 23        # Setting a Destination HERE
-NUM_PEDESTRIANS        = 30      # total number of pedestrians to spawn
-NUM_VEHICLES           = 30    # total number of vehicles to spawn
+PLAYER_START_INDEX = 51  # 54 # 10 # 148          #  spawn index for player
+DESTINATION_INDEX = 90        # Setting a Destination HERE
+NUM_PEDESTRIANS        = 100      # total number of pedestrians to spawn
+NUM_VEHICLES           = 0    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
 SEED_VEHICLES          = 0    # seed for vehicle spawn randomizer
 ###############################################################################àà
