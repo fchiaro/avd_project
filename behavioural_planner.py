@@ -204,7 +204,7 @@ class BehaviouralPlanner:
                 self._green_light_count = 0
                 self._stopped = True
 
-            if no_path_found:
+            if no_path_found and not self._stopped:
                 self._state = EMERGENCY_STOP
                 self._green_light_count = 0
                 self._n_subsequent_miss = 0
