@@ -96,14 +96,17 @@ class TrafficLightDetector:
         # gaussian_weights = gaussian_weights-np.min(gaussian_weights)
         # traffic_light_distance = np.average(depth_data, weights=gaussian_weights)
         traffic_light_distance = np.mean(depth_data)
-        
-        norm_depth = depth_image_array/1000
-        cv2.rectangle(norm_depth, (xmin,ymin), (xmax, ymax), (255,255,255), thickness=1)
-        norm_depth = norm_depth[ymin-20:ymax+20, xmin-40:xmax+10]
-        cv2.putText(norm_depth, str(int(traffic_light_distance)), (10, 10), cv2.FONT_HERSHEY_SIMPLEX, .3, (255,255,255),1, cv2.LINE_AA)
-        cv2.namedWindow('Depth data', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Depth data', 400, 400)
-        cv2.imshow('Depth data', norm_depth)
-        cv2.waitKey(1)
 
-        return traffic_light_distance
+        try:
+            norm_depth = depth_image_array/1000
+            cv2.rectangle(norm_depth, (xmin,ymin), (xmax, ymax), (255,255,255), thickness=1)
+            norm_depth = norm_depth[ymin-20:ymax+20, xmin-40:xmax+10]
+            cv2.putText(norm_depth, str(int(traffic_light_distance)), (10, 10), cv2.FONT_HERSHEY_SIMPLEX, .3, (255,255,255),1, cv2.LINE_AA)
+            cv2.namedWindow('Depth data', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('Depth data', 400, 400)
+            cv2.imshow('Depth data', norm_depth)
+            cv2.waitKey(1)
+        except Exception as e:
+            print(e)
+        finally:
+            return traffic_light_distance
