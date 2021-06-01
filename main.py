@@ -40,36 +40,6 @@ from postprocessing import draw_boxes
 from traffic_light_detection import TrafficLightDetector
 from utils_collision_checker import *
 
-######### WRAPPERS TO PRINT (LEADING) VEHICLE ID ##############
-# TODO: remove these wrappers and their usage
-class WrapperLocation():
-    def __init__(self) -> None:
-        self.x = None
-        self.yaw = None
-
-class WrapperTransform():
-    def __init__(self) -> None:
-        self.location = WrapperLocation()
-        self.rotation = WrapperLocation()
-
-class VehicleWithId():
-    def __init__(self):
-        self.transform = WrapperTransform()
-        self.transform.location.x = None
-        self.transform.location.y = None
-        self.transform.rotation.yaw = None
-        self.id = None
-        self.forward_speed = None
-######################################################
-
-
-"""
-vehicle.transform.location.x = agent.vehicle.transform.location.x
-vehicle.transform.location.y = agent.vehicle.transform.location.y
-vehicle.transform.rotation.yaw = agent.vehicle.transform.rotation.yaw
-vehicle.id = agent.id 
-"""
-
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
@@ -874,26 +844,19 @@ def exec_waypoint_nav_demo(args):
             current_speed = measurement_data.player_measurements.forward_speed
             current_timestamp = float(measurement_data.game_timestamp) / 1000.0
 
-            # UPDATE HERE the obstacles and vehicles list
-            obstacles = []
+
+            obstacles = [] # list of the obstacles to avoid
             vehicles = []
+
             for agent in measurement_data.non_player_agents:
                 # agent.id  # unique id of the agent
 
-                attr = None
                 if agent.HasField('vehicle'):
                     attr = 'vehicle'
-                    # TODO: remove wrappers usage
-                    vehicle = VehicleWithId()
-                    vehicle.transform.location.x = agent.vehicle.transform.location.x
-                    vehicle.transform.location.y = agent.vehicle.transform.location.y
-                    vehicle.transform.rotation.yaw = agent.vehicle.transform.rotation.yaw
-                    vehicle.id = agent.id
-                    vehicle.forward_speed = agent.vehicle.forward_speed
-                    vehicles.append(vehicle) # without wrapper pass agent.vehicle
                 elif agent.HasField('pedestrian'):
                     attr = 'pedestrian'
                 else:
+                    # only vehicles and pedestrians are considered as obstacles
                     continue
 
                 agent_type = getattr(agent, attr)
@@ -904,19 +867,21 @@ def exec_waypoint_nav_demo(args):
 
                 # note that current_yaw is already expressed in radians
                 if not is_obstacle_frontal((current_x, current_y), (location.x, location.y), current_yaw):
+                    # only vehicles and pedestrians that are located in front of the ego vehicle are
+                    # considered as obstacles
                     continue
 
                 # Build agent points
                 distance = np.linalg.norm(np.array([location.x, location.y]) - np.array([current_x, current_y]))
+
                 if distance < OBSTACLE_DETECTION_RADIUS:
-                    # if distance < 5:
-                    #     pass
-                        # print(f"Distanza da ostacolo pericolosa: {distance}")
-                        # print(f"Coordinate veicolo: {current_x},{current_y}")
-                        # print(f"Coordinate ostacolo: {location.x}, {location.y}")
+                    # only vehicles and pedestrians that are closer than a certain threshold are
+                    # considered as obstacles
 
                     agent_points = obstacle_to_world(location, dimensions, orientation)
 
+                    # obstacles is filled with other points. The points added are the locations of
+                    # the obstacles in the next time_to_horizon seconds with a sampling time of dt.
                     for point in agent_points:
                         obstacles += project_agent_into_future(agent_x0=point[0],
                                                                agent_y0=point[1],
@@ -924,24 +889,6 @@ def exec_waypoint_nav_demo(args):
                                                                agent_speed=agent_type.forward_speed,
                                                                dt=0.3,
                                                                time_to_horizon=3.5)
-                        """
-                        obstacles += predict_collision_points(agent_x0=point[0],
-                                                              agent_y0=point[1],
-                                                              agent_yaw=orientation.yaw,
-                                                              agent_speed=agent_type.forward_speed,
-                                                              vehicle_x0=current_x,
-                                                              vehicle_y0=current_y,
-                                                              vehicle_yaw=current_yaw,
-                                                              vehicle_speed=current_speed,
-                                                              dt=0.3,
-                                                              time_to_horizon=20)
-                        """
-
-                    # obstacles += obstacle_to_world(location, dimensions, orientation)
-
-                # agent.vehicle.forward_speed
-                # agent.vehicle.transform
-                # agent.vehicle.bounding_box
 
             # Wait for some initial time before starting the demo
             if current_timestamp <= WAIT_TIME_BEFORE_START:
@@ -983,7 +930,7 @@ def exec_waypoint_nav_demo(args):
                     camera_data = sensor_data.get('CameraRGB', None)
                     depth_data = sensor_data.get("DepthCamera", None)
                     if camera_data is not None and depth_data is not None:
-                        # passala al detector
+
                         camera_data = to_bgra_array(camera_data)
                         normalized_depth_data = depth_to_array(depth_data)
                         depth_data = normalized_depth_data * 1000  # convert to meters
@@ -1311,7 +1258,6 @@ def main():
 
 
 if __name__ == '__main__':
-
     try:
         main()
     except KeyboardInterrupt:
