@@ -3,6 +3,7 @@ import numpy as np
 import scipy.spatial
 from math import sin, cos, pi, sqrt
 
+
 class CollisionChecker:
     def __init__(self, circle_offsets, circle_radii, weight):
         self._circle_offsets = circle_offsets
