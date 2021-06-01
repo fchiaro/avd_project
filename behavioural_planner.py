@@ -123,8 +123,7 @@ class BehaviouralPlanner:
         # understand it.
         if self._state == FOLLOW_LANE:
             if self._stopped:
-                self._stopped = False 
-            # print("FOLLOW_LANE")
+                self._stopped = False
             self._update_goal_state(waypoints, ego_state)
 
             if traffic_light_state is not None and traffic_light_distance is not None:
@@ -133,21 +132,13 @@ class BehaviouralPlanner:
             if no_path_found:
                 self._state = EMERGENCY_STOP
 
-            """
-            if 10 <= self._test_counter <= 30:
-                print("FRENA")
-                self._goal_state[2] = 0
-            else:
-                print(self._test_counter)
-            self._test_counter += 1
-            """
         elif self._state == EMERGENCY_STOP:
             self._update_goal_state(waypoints, ego_state)
             self._goal_state[2] = 0
             if not no_path_found:
                 self._state = FOLLOW_LANE
+
         elif self._state == DETECTED_RED_LIGHT:
-            # print(f"DETECTED RED LIGHT - {self._red_light_count}") # DEBUG
             self._update_goal_state(waypoints, ego_state)
 
             if traffic_light_state == self._TRAFFIC_LIGHT_RED_STATE:
@@ -161,27 +152,19 @@ class BehaviouralPlanner:
             
             if traffic_light_distance is not None and self._red_light_count >= self._red_light_count_th and traffic_light_distance <= self._traffic_light_distance_threshold:
                 print("Transitioning to decelerate and wait")
-                # impostare come prossimo obiettivo un waypoint vicino al semaforo e mettergli come velocità target zero
-                # abbiamo detto che possiamo farlo prendendo un waypoint ad una distanza <= a quella alla quale si trova il semaforo,
-                # stesso con la funzione che ci hanno dato loro, e settare la velocità desiderata in quel punto a zero. Per far ciò,
-                # abbiamo bisogno di cambiare temporaneamente la distanza di lookahead
+                # when the ego vehicle is close to the traffic light and its
+                # light is red the ego vehicle changes state, it stops and waits.
 
-                # update goal state by taking the farthest waypoint within the distance between the vehicle and the semaphore
-                # self._update_goal_state(waypoints, ego_state, lookahead=traffic_light_distance)
-                # closest_len, closest_index = get_closest_index(waypoints, ego_state)
-                # self._goal_index = closest_index
-                # self._goal_state = waypoints[closest_index]
-                # set target speed to zero
                 self._goal_state[2] = 0
-
                 self._red_light_count = 0
                 self._state = DECELERATE_AND_WAIT
+
             if no_path_found:
                 self._state = EMERGENCY_STOP
                 self._red_light_count = 0
         
         elif self._state == DECELERATE_AND_WAIT:
-            # print("DECELERATE AND WAIT") # DEBUG
+
             if traffic_light_state == self._TRAFFIC_LIGHT_GREEN_STATE:
                 self._green_light_count += 1
 
@@ -215,7 +198,6 @@ class BehaviouralPlanner:
         # stop, and compare to STOP_THRESHOLD.  If so, transition to the next
         # state.
         elif self._state == DECELERATE_TO_STOP:
-            # print("DECELERATE_TO_STOP") # DEBUG
             if abs(closed_loop_speed) <= STOP_THRESHOLD:
                 self._state = STAY_STOPPED
                 self._stop_count = 0
@@ -224,7 +206,6 @@ class BehaviouralPlanner:
         # least STOP_COUNTS number of cycles. If so, we can now leave
         # the stop sign and transition to the next state.
         elif self._state == STAY_STOPPED:
-            #print("STAY_STOPPED")
             # We have stayed stopped for the required number of cycles.
             # Allow the ego vehicle to leave the stop sign. Once it has
             # passed the stop sign, return to lane following.
@@ -243,9 +224,6 @@ class BehaviouralPlanner:
 
             # If the stop sign is no longer along our path, we can now
             # transition back to our lane following state.
-            
-            #if not stop_sign_found: self._state = FOLLOW_LANE
-
             self._state = FOLLOW_LANE
                 
         else:
@@ -293,31 +271,36 @@ class BehaviouralPlanner:
         # consideration.
         arc_length = closest_len
         wp_index = closest_index
-        old_arch_length = arc_length
 
         # In this case, reaching the closest waypoint is already far enough for
         # the planner.  No need to check additional waypoints.
         if arc_length > self._lookahead:
-            # print(f"[Lookahead too small] Distance from the waypoint: {old_arch_length}")
             return wp_index
 
         # We are already at the end of the path.
         if wp_index == len(waypoints) - 1:
-            # print(f"[End of the path] Distance from the waypoint: {old_arch_length}")
             return wp_index
 
         # Otherwise, find our next waypoint.
         while wp_index < len(waypoints) - 1:
             arc_length += np.sqrt((waypoints[wp_index][0] - waypoints[wp_index+1][0])**2 + (waypoints[wp_index][1] - waypoints[wp_index+1][1])**2)
-            if arc_length > self._lookahead: break
-            old_arch_length = arc_length
+            if arc_length > self._lookahead:
+                break
             wp_index += 1
-
-        # print(f"[Found waypoint <= lookahead] Distance from the waypoint: {old_arch_length}")
-
         return wp_index % len(waypoints)
-                
-    def _filter_leading_vehicles(self, vehicles, ego_state, heading_cosine_threshold):
+
+    def _filter_leading_vehicles(self, vehicles, ego_state, heading_cosine_threshold, angle_threshold=20):
+        """[summary]
+        It takes in input the list of the vehicles, the ego vehicle and returns
+        the list of leading vehicles according to a certain threshold.
+        Args:
+            vehicles (list): the list of the vehicles
+            ego_state (float): the ego vehicle
+            heading_cosine_threshold (float): cosine threshold for determining if a vehicle is in front of the ego vehicle
+            angle_threshold (float): angle threshold for determining if two vehicles are moving on the same direction
+        Returns:
+            leading_vehicles (list): list of the leading vehicles
+        """
         leading_vehicles = []
         for vehicle in vehicles:
             vehicle_delta_vector = [vehicle.transform.location.x - ego_state.transform.location.x, 
@@ -325,21 +308,25 @@ class BehaviouralPlanner:
             vehicle_distance = np.linalg.norm(vehicle_delta_vector)
             vehicle_delta_vector = np.divide(vehicle_delta_vector, 
                                               vehicle_distance)
-            # IL COSENO E' IN RADIANTIIIIIIIIIII
             yaw_radians = ego_state.transform.rotation.yaw/180*math.pi
             ego_heading_vector = [math.cos(yaw_radians), math.sin(yaw_radians)]
             is_in_front = np.dot(vehicle_delta_vector, ego_heading_vector) > heading_cosine_threshold
-            is_on_same_direction = abs(vehicle.transform.rotation.yaw-ego_state.transform.rotation.yaw) < 20
+            is_on_same_direction = abs(vehicle.transform.rotation.yaw-ego_state.transform.rotation.yaw) < angle_threshold
             if is_in_front and is_on_same_direction:
-                # print(vehicle_delta_vector, '\n', ego_heading_vector)
-                # print(f"Ego yaw: {ego_state.transform.rotation.yaw} - vehicle yaw: {vehicle.transform.rotation.yaw}")
-                # print(f"internal distance: {vehicle_distance}")
-                # print(f"Dot product: {np.dot(vehicle_delta_vector, ego_heading_vector)}")
                 leading_vehicles.append(vehicle)
         return leading_vehicles
-    
 
     def _get_closest_vehicle(self, leading_vehicles, ego_state):
+        """[summary]
+        It takes in input the list of the leading vehicles, the ego vehicle and returns
+        the closest vehicle and its distance from the ego vehicle.
+        Args:
+            leading_vehicles (list): the list of the leading vehicles
+            ego_state (float): the ego vehicle
+        Returns:
+            min_distance_vehicle (object): the closest leading vehicle
+            min_distance (float): the distance between the ego vehicle and the closest leading vehicle
+        """
         min_distance_vehicle = None
         min_distance = None
 
@@ -353,7 +340,6 @@ class BehaviouralPlanner:
         
         return min_distance_vehicle, min_distance
 
-    
     # Checks to see if we need to modify our velocity profile to accomodate the
     # lead vehicle.
     def check_for_lead_vehicle(self, ego_state, vehicles):
@@ -382,7 +368,7 @@ class BehaviouralPlanner:
         # Check to see if lead vehicle is within range, and is ahead of us.
         
         # if not self._follow_lead_vehicle:
-            
+
         print("Looking for a new leading vehicle...")
 
         vehicles = self._filter_leading_vehicles(vehicles, ego_state, (1 / math.sqrt(2)))
@@ -399,44 +385,16 @@ class BehaviouralPlanner:
             self._follow_lead_vehicle = False
             return None
 
-        # self._follow_lead_vehicle = True
-
         self._lead_vehicle = lead_vehicle
 
         self._follow_lead_vehicle = True
-        
-        # print(f"Found new leading vehicle! - {lead_vehicle.id}")
-        print(f"Following {lead_vehicle.id}")
 
         return lead_vehicle
 
-        # else:
-        #     print(f"Following the same car - {self._lead_vehicle.id}")
-
-        #     lead_car_delta_vector = [self._lead_vehicle.transform.location.x - ego_state.transform.location.x, 
-        #                              self._lead_vehicle.transform.location.y - ego_state.transform.location.y]
-        #     lead_car_distance = np.linalg.norm(lead_car_delta_vector)
-
-        #     # Add a 15m buffer to prevent oscillations for the distance check.
-        #     if lead_car_distance < self._follow_lead_vehicle_lookahead + 15:
-        #         return self._lead_vehicle
-        #     # Check to see if the lead vehicle is still within the ego vehicle's
-        #     # frame of view.
-        #     lead_car_delta_vector = np.divide(lead_car_delta_vector, lead_car_distance)
-        #     ego_heading_vector = [math.cos(ego_state.transform.rotation.yaw), math.sin(ego_state.transform.rotation.yaw)]
-        #     if np.dot(lead_car_delta_vector, ego_heading_vector) > (1 / math.sqrt(2)):
-        #         return self._lead_vehicle
-
-        #     self._follow_lead_vehicle = False
-            
-        #     self._lead_vehicle = None
-
-        #     print("Lost leading vehicle")
-
-        #     return None
-
 # Compute the waypoint index that is closest to the ego vehicle, and return
 # it as well as the distance from the ego vehicle to that waypoint.
+
+
 def get_closest_index(waypoints, ego_state):
     """Gets closest index a given list of waypoints to the vehicle position.
 
@@ -478,7 +436,9 @@ def get_closest_index(waypoints, ego_state):
 
     return closest_len, closest_index
 
-# Checks if p2 lies on segment p1-p3, if p1, p2, p3 are collinear.        
+# Checks if p2 lies on segment p1-p3, if p1, p2, p3 are collinear.
+
+
 def pointOnSegment(p1, p2, p3):
     if (p2[0] <= max(p1[0], p3[0]) and (p2[0] >= min(p1[0], p3[0])) and \
        (p2[1] <= max(p1[1], p3[1])) and (p2[1] >= min(p1[1], p3[1]))):
