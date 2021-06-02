@@ -43,8 +43,8 @@ from utils_collision_checker import *
 ###############################################################################
 # CONFIGURABLE PARAMENTERS DURING EXAM
 ###############################################################################
-PLAYER_START_INDEX = 148 # 54 # 10 # 148          #  spawn index for player
-DESTINATION_INDEX = 15        # Setting a Destination HERE
+PLAYER_START_INDEX = 93 # 54 # 10 # 148          #  spawn index for player
+DESTINATION_INDEX = 58        # Setting a Destination HERE
 NUM_PEDESTRIANS        = 200      # total number of pedestrians to spawn
 NUM_VEHICLES           = 100    # total number of vehicles to spawn
 SEED_PEDESTRIANS       = 0      # seed for pedestrian spawn randomizer
@@ -60,7 +60,7 @@ CLIENT_WAIT_TIME       = 3      # wait time for client before starting episode
                                 # consistently
 
 OBSTACLE_DETECTION_RADIUS = 13 # m
-PLOT = True
+PLOT = False
 ENABLE_DETECTOR = True
 REAR_CAMERA = False
 
@@ -936,12 +936,7 @@ def exec_waypoint_nav_demo(args):
                         depth_data = normalized_depth_data * 1000  # convert to meters
                         traffic_light_state, traffic_light_distance = tl_detector.detect_and_estimate_distance(
                             camera_data, depth_data)
-                        print(
-                            f"Semaphore state: {traffic_light_state} - semaphore distance {traffic_light_distance}")  # DEBUG
-                        # #### DEBUG ####
-                        from avd_utils import closest_traffic_light_distance
-                        print(f"Traffic light real distance: {closest_traffic_light_distance(measurement_data)}")
-                        # #### END DEBUG ####
+                        # print(f"Traffic light state: {traffic_light_state} - Traffic light distance {traffic_light_distance}")  # DEBUG
                 if REAR_CAMERA:
                     camera_data = sensor_data.get("CameraRGB2", None) # CameraRGB2
                     if camera_data is not None:
